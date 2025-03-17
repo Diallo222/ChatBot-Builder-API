@@ -58,9 +58,9 @@ export const sendMessage = async (
       }))
     );
 
-    // Add AI response
+    // Add AI response with 'assistant' role
     const aiMessage: IMessage = {
-      sender: "bot",
+      sender: "assistant",
       content: response,
       timestamp: new Date(),
     };

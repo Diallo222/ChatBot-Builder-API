@@ -7,6 +7,8 @@ import planRoutes from "./routes/planRoutes";
 import { handleStripeWebhook } from "./services/paymentService";
 import { stripe } from "./config/stripe";
 import projectRoutes from "./routes/projectRoutes";
+import avatarRoutes from "./routes/avatarRoutes";
+import conversationRoutes from "./routes/conversationRoutes";
 // Load environment variables
 dotenv.config();
 
@@ -24,6 +26,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/projects", projectRoutes);
+app.use("/api/avatars", avatarRoutes);
+app.use("/api/conversations", conversationRoutes);
 
 // Stripe webhook route
 app.post(
