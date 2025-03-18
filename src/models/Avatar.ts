@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from "mongoose";
 export enum AvatarType {
   PREDEFINED = "predefined",
   CUSTOM = "custom",
+  AI_GENERATED = "ai_generated",
 }
 
 export interface IAvatar extends Document {

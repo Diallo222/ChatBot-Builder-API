@@ -37,4 +37,12 @@ router.post(
   avatarController.createPublicAvatar
 );
 
+// AI Avatar generation route
+router.post(
+  "/generate",
+  protect,
+  upload.single("referenceImage"), // Optional reference image
+  avatarController.createAIAvatar
+);
+
 export default router;

@@ -1,5 +1,10 @@
 import { OpenAI } from "openai";
 import { IProject } from "../models/Project";
+import {
+  prepareTrainingData,
+  storeVectors,
+  searchSimilarContent,
+} from "./vectorService";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -12,18 +17,21 @@ interface TrainingData {
 
 export const trainChatbot = async (project: IProject): Promise<void> => {
   try {
-    // Gather training data from selected pages and FAQs
-    const trainingData = getTrainingData(project);
+    // Get website content and FAQs
+    const websiteContent =
+      project.scrapedPages
+        ?.filter((page) => page.selected)
+        .map((page) => page.content || "") || [];
 
-    // Create initial system message with context
-    const systemMessage = createSystemMessage(project, trainingData);
-
-    // Store the training data in vector database or similar
-    await storeTrainingData(
+    // Prepare training data
+    const documents = await prepareTrainingData(
       project._id.toString(),
-      systemMessage,
-      trainingData
+      websiteContent,
+      project.customFaqs || []
     );
+
+    // Store vectors
+    await storeVectors(project._id.toString(), documents);
   } catch (error) {
     console.error("Training error:", error);
     throw error;
@@ -39,15 +47,23 @@ export const generateResponse = async (
   }> = []
 ): Promise<string> => {
   try {
-    // Get project context and training data
-    const context = await getProjectContext(projectId);
+    // Search for relevant content
+    const relevantDocs = await searchSimilarContent(projectId, message);
 
+    // Create context from relevant documents
+    const context = relevantDocs.map((doc) => doc.pageContent).join("\n\n");
+
+    // Create messages array with system message
     const messages = [
-      { role: "system", content: context },
+      {
+        role: "system",
+        content: `You are a helpful AI assistant. Use the following context to answer questions:\n\n${context}`,
+      },
       ...conversationHistory,
       { role: "user", content: message },
     ] as OpenAI.Chat.ChatCompletionMessageParam[];
 
+    // Generate response
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages,

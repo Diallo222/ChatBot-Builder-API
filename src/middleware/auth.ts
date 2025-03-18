@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User, { IUser } from "../models/User";
+import { verifyToken } from "../services/authService";
+import rateLimit from "express-rate-limit";
 
 interface JwtPayload {
   id: string;
@@ -11,53 +13,55 @@ declare global {
   namespace Express {
     interface Request {
       user?: IUser;
+      csrfToken(): string;
     }
   }
 }
 
+// Rate limiting for auth endpoints
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 requests per windowMs
+  message: "Too many login attempts, please try again later",
+});
+
+// CSRF Protection
+export const csrfProtection = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const token = req.headers["x-csrf-token"];
+  if (!token || token !== req.csrfToken?.()) {
+    return res.status(403).json({ message: "Invalid CSRF token" });
+  }
+  next();
+};
+
+// Protected route middleware
 export const protect = async (
   req: Request,
   res: Response,
   next: NextFunction
-): Promise<void> => {
-  let token: string | undefined;
+): Promise<void | Response> => {
+  try {
+    const token = req.cookies.accessToken;
 
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    try {
-      // Get token from header
-      token = req.headers.authorization.split(" ")[1];
-
-      // Verify token
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET as string
-      ) as JwtPayload;
-
-      // Get user from the token and convert to IUser type
-      const user = await User.findById(decoded.id).select("-password").lean();
-
-      if (!user) {
-        res.status(401).json({ message: "User not found" });
-        return;
-      }
-
-      // Assign the user to req.user with proper typing
-      req.user = user as IUser;
-
-      next();
-    } catch (error) {
-      console.error("Auth middleware error:", error);
-      res.status(401).json({ message: "Not authorized, token failed" });
-      return;
+    if (!token) {
+      return res.status(401).json({ message: "Not authenticated" });
     }
-  }
 
-  if (!token) {
-    res.status(401).json({ message: "Not authorized, no token" });
-    return;
+    const decoded = verifyToken(token);
+    const user = await User.findById(decoded.userId).select("-password");
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: "Token is invalid or expired" });
   }
 };
 

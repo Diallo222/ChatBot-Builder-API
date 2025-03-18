@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Avatar, { AvatarType } from "../models/Avatar";
 import { uploadToStorage, deleteFromStorage } from "../services/storageService";
+import { generateAIAvatar } from "../services/aiAvatarService";
 
 export const createAvatar = async (
   req: Request,
@@ -151,6 +152,40 @@ export const createPublicAvatar = async (
     console.error("Create public avatar error:", error);
     res.status(500).json({
       message: "Error creating public avatar",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+export const createAIAvatar = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { name, prompt, style } = req.body;
+    const referenceImage = req.file;
+
+    // Generate AI avatar
+    const imageUrl = await generateAIAvatar({
+      prompt,
+      referenceImage,
+      style,
+    });
+
+    // Create avatar in database
+    const avatar = await Avatar.create({
+      name,
+      type: AvatarType.AI_GENERATED,
+      imageUrl,
+      owner: req.user!.id,
+      isPublic: false,
+    });
+
+    res.status(201).json(avatar);
+  } catch (error) {
+    console.error("Create AI avatar error:", error);
+    res.status(500).json({
+      message: "Error creating AI avatar",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }

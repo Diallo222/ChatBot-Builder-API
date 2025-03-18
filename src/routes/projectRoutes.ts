@@ -14,4 +14,13 @@ router.put("/:id", projectController.updateProject);
 router.delete("/:id", projectController.deleteProject);
 router.put("/:id/pages", projectController.updateSelectedPages);
 
+// Configuration routes
+router.get("/:id/configuration", projectController.getConfiguration);
+router.put("/:id/configuration", projectController.updateConfiguration);
+router.post("/:id/configuration/reset", projectController.resetConfiguration);
+
+// Avatar routes
+router.put("/:id/avatar", projectController.updateProjectAvatar);
+router.post("/:id/avatar/reset", projectController.resetProjectAvatar);
+
 export default router;

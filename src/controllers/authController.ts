@@ -2,6 +2,13 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import User, { UserRole } from "../models/User";
 import Plan from "../models/Plan";
+import {
+  generateTokens,
+  setTokenCookies,
+  clearTokenCookies,
+  verifyToken,
+} from "../services/authService";
+import { validatePassword } from "../utils/passwordUtils";
 
 // Generate JWT token
 const generateToken = (userId: string): string => {
@@ -70,34 +77,27 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    // Find user by email
     const user = await User.findOne({ email });
-
-    if (!user) {
-      res.status(401).json({ message: "Invalid email or password" });
+    if (!user || !(await validatePassword(password, user.password))) {
+      res.status(401).json({ message: "Invalid credentials" });
       return;
     }
 
-    // Check if password matches
-    const isMatch = await user.comparePassword(password);
-
-    if (!isMatch) {
-      res.status(401).json({ message: "Invalid email or password" });
-      return;
-    }
+    const tokens = generateTokens(user);
+    setTokenCookies(res, tokens);
 
     res.json({
-      _id: user._id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      token: generateToken(user._id.toString()),
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
     });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({
-      message: "Server error",
+      message: "Error during login",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }
@@ -164,6 +164,63 @@ export const updateUserProfile = async (
     console.error("Update profile error:", error);
     res.status(500).json({
       message: "Server error",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+export const refresh = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      res.status(401).json({ message: "Refresh token not found" });
+      return;
+    }
+
+    const decoded = verifyToken(refreshToken, true);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      res.status(401).json({ message: "User not found" });
+      return;
+    }
+
+    const tokens = generateTokens(user);
+    setTokenCookies(res, tokens);
+
+    res.json({ message: "Token refreshed successfully" });
+  } catch (error) {
+    console.error("Token refresh error:", error);
+    res.status(401).json({ message: "Invalid refresh token" });
+  }
+};
+
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  clearTokenCookies(res);
+  res.json({ message: "Logged out successfully" });
+};
+
+export const me = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ message: "Not authenticated" });
+      return;
+    }
+
+    res.json({
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    });
+  } catch (error) {
+    console.error("Get user error:", error);
+    res.status(500).json({
+      message: "Error fetching user data",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }
