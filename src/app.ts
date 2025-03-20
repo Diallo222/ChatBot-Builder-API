@@ -14,12 +14,15 @@ import cookieParser from "cookie-parser";
 import csrf from "csurf";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import { createDefaultFreePlan } from "./controllers/planController";
 // Load environment variables
 dotenv.config();
 
 // Connect to database
 connectDB();
 
+// Create default free plan
+//createDefaultFreePlan();
 // Extend Express Request type
 declare global {
   namespace Express {
@@ -109,6 +112,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/csrf-token", (req, res) => {
+  console.log("csrfToken", req.csrfToken());
   res.json({ csrfToken: req.csrfToken() });
 });
 

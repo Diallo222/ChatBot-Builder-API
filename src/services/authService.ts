@@ -15,22 +15,23 @@ interface Tokens {
 const TOKEN_VERSION = 1;
 
 export const generateTokens = (user: IUser): Tokens => {
+  // Validate both secrets exist
+  if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
+    throw new Error("JWT secrets are not configured properly");
+  }
+
   const payload: TokenPayload = {
     userId: user._id.toString(),
     version: TOKEN_VERSION,
   };
 
-  const accessToken = jwt.sign(
-    payload,
-    process.env.JWT_ACCESS_SECRET as string,
-    { expiresIn: "15m" }
-  );
+  const accessToken = jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
+    expiresIn: "15m",
+  });
 
-  const refreshToken = jwt.sign(
-    payload,
-    process.env.JWT_REFRESH_SECRET as string,
-    { expiresIn: "7d" }
-  );
+  const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: "7d",
+  });
 
   return { accessToken, refreshToken };
 };

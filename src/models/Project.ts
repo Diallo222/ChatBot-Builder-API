@@ -1,12 +1,12 @@
 import mongoose, { Document, Schema } from "mongoose";
 
-interface IScrapedPage {
+export interface IScrapedPage {
   url: string;
   selected: boolean;
   content?: string;
 }
 
-interface ICustomFaq {
+export interface ICustomFaq {
   question: string;
   answer: string;
 }
@@ -54,6 +54,7 @@ export interface IProject extends Document {
     error?: string;
   };
   configuration: IConfiguration;
+  assistantId: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -174,6 +175,10 @@ const ProjectSchema: Schema = new Schema(
           ],
         },
       ],
+    },
+    assistantId: {
+      type: String,
+      required: false,
     },
   },
   { timestamps: true }

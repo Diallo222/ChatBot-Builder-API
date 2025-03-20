@@ -3,35 +3,132 @@ import Project from "../models/Project";
 import User from "../models/User";
 import { scrapeWebsite } from "../services/webScraper";
 import { IPlan } from "../models/Plan";
-import { LauncherIcon } from "../models/Project";
+import { LauncherIcon, IScrapedPage } from "../models/Project";
 import Avatar from "../models/Avatar";
+import openai from "../config/openai";
+
+interface CreateProjectBody {
+  name: string;
+  description?: string;
+  websiteUrl?: string;
+  scrapedPages?: IScrapedPage[];
+  avatar?: {
+    type: "custom" | "predefined";
+    avatarId?: string; // For predefined avatars
+  };
+}
 
 export const createProject = async (
-  req: Request,
+  req: Request<{}, {}, CreateProjectBody> & {
+    file?: Express.Multer.File & { path: string };
+  },
   res: Response
 ): Promise<void> => {
+  console.log("createProject CALLED");
+  console.log("AVATAR", req.body.avatar);
+
   try {
-    const { name, description, websiteUrl } = req.body;
+    const { name, description, websiteUrl, scrapedPages } = req.body;
     const userId = req.user!.id;
 
     // Check user's subscription and project limits
     const user = await User.findById(userId).populate<{
       subscription: { plan: IPlan };
     }>("subscription.plan");
+
     if (!user) {
+      console.log("user not found");
+
       res.status(404).json({ message: "User not found" });
       return;
     }
 
     // Count user's existing projects
-    const projectCount = await Project.countDocuments({ owner: userId });
-    const avatarLimit = user.subscription.plan.avatarLimit;
+    // const projectCount = await Project.countDocuments({ owner: userId });
+    // const avatarLimit = user.subscription.plan.avatarLimit;
 
-    if (projectCount >= avatarLimit) {
-      res.status(403).json({
-        message: "Project limit reached for your subscription plan",
+    // if (projectCount >= avatarLimit) {
+    //   console.log("project limit reached");
+
+    //   res.status(403).json({
+    //     message: "Project limit reached for your subscription plan",
+    //   });
+    //   return;
+    // }
+
+    // Handle avatar data
+    let avatarData;
+    let avatar = req.body.avatar;
+    if (typeof avatar === "string") {
+      try {
+        avatar = JSON.parse(avatar);
+      } catch (e) {
+        /* handle error */
+      }
+    }
+    if (avatar?.type === "predefined" && avatar?.avatarId) {
+      // Verify predefined avatar exists
+      const predefinedAvatar = await Avatar.findById(avatar.avatarId);
+      console.log("predefinedAvatar", predefinedAvatar);
+      if (!predefinedAvatar) {
+        res
+          .status(404)
+          .json({ message: "Selected predefined avatar not found" });
+        return;
+      }
+      avatarData = {
+        type: "predefined",
+        imageUrl: predefinedAvatar.imageUrl,
+        avatarId: predefinedAvatar._id,
+      };
+    } else if (req.file) {
+      // Custom avatar from file upload
+      avatarData = {
+        type: "custom",
+        imageUrl: req.file.path, // Cloudinary URL from middleware
+      };
+    } else {
+      // Default avatar
+      avatarData = {
+        type: "predefined",
+        imageUrl:
+          "https://res.cloudinary.com/doaxoti6i/image/upload/v1740363595/Screenshot_2025-02-24_101927_k8yz4j.png", // Your default avatar URL
+      };
+    }
+
+    // Create OpenAI assistant with scraped content
+    let assistantId: string | undefined;
+
+    // First, ensure scrapedPages is an array
+    let scrapedPagesParsed = scrapedPages;
+
+    // If it's a string, try to parse it
+    if (typeof scrapedPagesParsed === "string") {
+      try {
+        scrapedPagesParsed = JSON.parse(scrapedPagesParsed);
+      } catch (e) {
+        console.warn("Failed to parse scrapedPages:", e);
+        scrapedPagesParsed = [];
+      }
+    }
+
+    // If it's still not an array, initialize it as empty array
+    if (!Array.isArray(scrapedPagesParsed)) {
+      scrapedPagesParsed = [];
+    }
+    if (scrapedPagesParsed?.length) {
+      const instructions = scrapedPagesParsed
+        .filter((page) => page)
+        .map((page) => `Content from ${page.url}:\n${page.content}`)
+        .join("\n\n");
+
+      const assistant = await openai.beta.assistants.create({
+        name: `${name} Assistant`,
+        instructions: `You are a helpful AI assistant for the website ${websiteUrl}. Use the following content to answer questions:\n\n${instructions}`,
+        model: "gpt-4-turbo-preview",
       });
-      return;
+      console.log("assistant", assistant);
+      assistantId = assistant.id;
     }
 
     // Create project
@@ -40,17 +137,17 @@ export const createProject = async (
       description,
       owner: userId,
       websiteUrl,
+      avatar: avatarData,
+      scrapedPages: scrapedPagesParsed,
+      ...(assistantId && { assistantId }),
     });
 
-    // If website URL is provided, start scraping
-    if (websiteUrl) {
-      const scrapedPages = await scrapeWebsite(websiteUrl);
-      project.scrapedPages = scrapedPages;
-      await project.save();
-    }
+    // console.log("project created !!!!!!!!!!", project, assistantId);
 
     res.status(201).json(project);
   } catch (error) {
+    // console.log("error", error);
+
     console.error("Create project error:", error);
     res.status(500).json({
       message: "Error creating project",
@@ -65,11 +162,13 @@ export const getProjects = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
+    console.log("userId", userId);
     const projects = await Project.find({ owner: userId })
       .populate("avatar")
       .sort({ createdAt: -1 });
+    console.log("projects GOTTEN");
 
-    res.json(projects);
+    res.status(200).json(projects);
   } catch (error) {
     console.error("Get projects error:", error);
     res.status(500).json({
@@ -134,7 +233,7 @@ export const updateProject = async (
     if (description) project.description = description;
     if (websiteUrl && websiteUrl !== project.websiteUrl) {
       project.websiteUrl = websiteUrl;
-      project.scrapedPages = await scrapeWebsite(websiteUrl);
+      project.scrapedPages = scrapedPages;
     }
     if (scrapedPages) project.scrapedPages = scrapedPages;
     if (avatar) project.avatar = avatar;
@@ -172,8 +271,19 @@ export const deleteProject = async (
       return;
     }
 
+    // Delete OpenAI assistant if it exists
+    if (project.assistantId) {
+      try {
+        await openai.beta.assistants.del(project.assistantId);
+      } catch (assistantError) {
+        console.error("Error deleting OpenAI assistant:", assistantError);
+        // Continue with project deletion even if assistant deletion fails
+      }
+    }
+
     await project.deleteOne();
-    res.json({ message: "Project removed" });
+    console.log("project and associated assistant deleted");
+    res.status(200).json({ message: "Project removed" });
   } catch (error) {
     console.error("Delete project error:", error);
     res.status(500).json({
@@ -439,6 +549,30 @@ export const resetProjectAvatar = async (
     console.error("Reset project avatar error:", error);
     res.status(500).json({
       message: "Error resetting project avatar",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+// Add new controller for website scraping
+export const scrapeWebsitePages = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { websiteUrl } = req.body;
+
+    if (!websiteUrl) {
+      res.status(400).json({ message: "Website URL is required" });
+      return;
+    }
+
+    const scrapedPages = await scrapeWebsite(websiteUrl);
+    res.json({ scrapedPages });
+  } catch (error) {
+    console.error("Website scraping error:", error);
+    res.status(500).json({
+      message: "Error scraping website",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }

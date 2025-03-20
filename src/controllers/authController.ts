@@ -9,18 +9,23 @@ import {
   verifyToken,
 } from "../services/authService";
 import { validatePassword } from "../utils/passwordUtils";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // Generate JWT token
 const generateToken = (userId: string): string => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET as string, {
+  return jwt.sign({ id: userId }, process.env.JWT_ACCESS_SECRET as string, {
     expiresIn: "30d",
   });
 };
 
 // Register a new user
 export const register = async (req: Request, res: Response): Promise<void> => {
+  console.log("req.body", req.body);
+
   try {
-    const { email, password, firstName, lastName } = req.body;
+    const { email, password, fullName } = req.body;
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -30,9 +35,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Get the free plan
-    const freePlan = await Plan.findOne({ name: "Free" });
+    const freePlan = await Plan.findOne({ price: 0 });
     if (!freePlan) {
-      res.status(500).json({ message: "Free plan not found" });
+      console.log("freePlan", freePlan);
+
+      res.status(404).json({ message: "Free plan not found" });
       return;
     }
 
@@ -40,8 +47,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const user = await User.create({
       email,
       password,
-      firstName,
-      lastName,
+      fullName,
       role: UserRole.USER,
       subscription: {
         plan: freePlan._id,
@@ -52,18 +58,20 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     });
 
     if (user) {
+      const tokens = generateTokens(user);
+      setTokenCookies(res, tokens);
       res.status(201).json({
         _id: user._id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        fullName: user.fullName,
         role: user.role,
-        token: generateToken(user._id.toString()),
       });
     } else {
       res.status(400).json({ message: "Invalid user data" });
     }
   } catch (error) {
+    console.log("error", error);
+
     console.error("Register error:", error);
     res.status(500).json({
       message: "Server error",
@@ -74,6 +82,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 // Login user
 export const login = async (req: Request, res: Response): Promise<void> => {
+  console.log("login route req.body", req.body);
+
   try {
     const { email, password } = req.body;
 
@@ -87,11 +97,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     setTokenCookies(res, tokens);
 
     res.json({
+      message: "Login successful",
       user: {
         id: user._id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        fullName: user.fullName,
       },
     });
   } catch (error) {
@@ -108,6 +118,8 @@ export const getUserProfile = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  console.log("getUserProfile route req.user", req.user);
+
   try {
     // req.user is set by the auth middleware
     const user = await User.findById(req.user?.id)
@@ -142,8 +154,7 @@ export const updateUserProfile = async (
       return;
     }
 
-    user.firstName = req.body.firstName || user.firstName;
-    user.lastName = req.body.lastName || user.lastName;
+    user.fullName = req.body.fullName || user.fullName;
     user.email = req.body.email || user.email;
 
     if (req.body.password) {
@@ -154,8 +165,7 @@ export const updateUserProfile = async (
 
     res.json({
       _id: updatedUser._id,
-      firstName: updatedUser.firstName,
-      lastName: updatedUser.lastName,
+      fullName: updatedUser.fullName,
       email: updatedUser.email,
       role: updatedUser.role,
       token: generateToken(updatedUser._id.toString()),
@@ -170,6 +180,8 @@ export const updateUserProfile = async (
 };
 
 export const refresh = async (req: Request, res: Response): Promise<void> => {
+  console.log("refresh route req.cookies", req.cookies);
+
   try {
     const refreshToken = req.cookies.refreshToken;
 
@@ -179,7 +191,7 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
     }
 
     const decoded = verifyToken(refreshToken, true);
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(decoded.userId); // Use 'id' instead of 'userId'
 
     if (!user) {
       res.status(401).json({ message: "User not found" });
@@ -202,6 +214,8 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const me = async (req: Request, res: Response): Promise<void> => {
+  console.log("me route req.user", req.user);
+
   try {
     const user = req.user;
     if (!user) {
@@ -213,11 +227,12 @@ export const me = async (req: Request, res: Response): Promise<void> => {
       user: {
         id: user._id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        fullName: user.fullName,
       },
     });
   } catch (error) {
+    console.log("me route error", error);
+
     console.error("Get user error:", error);
     res.status(500).json({
       message: "Error fetching user data",

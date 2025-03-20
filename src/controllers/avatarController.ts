@@ -46,8 +46,8 @@ export const getAvatars = async (
     const avatars = await Avatar.find({
       $or: [{ isPublic: true }, { owner: req.user!.id }],
     }).sort({ createdAt: -1 });
-
-    res.json(avatars);
+    console.log("ALL AVATARS", avatars);
+    res.status(200).json(avatars);
   } catch (error) {
     console.error("Get avatars error:", error);
     res.status(500).json({
@@ -175,7 +175,8 @@ export const createAIAvatar = async (
     // Create avatar in database
     const avatar = await Avatar.create({
       name,
-      type: AvatarType.AI_GENERATED,
+      type:
+        req.user!.role === "admin" ? AvatarType.PREDEFINED : AvatarType.CUSTOM,
       imageUrl,
       owner: req.user!.id,
       isPublic: false,

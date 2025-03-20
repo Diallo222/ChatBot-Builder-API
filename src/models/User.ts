@@ -9,8 +9,7 @@ export enum UserRole {
 export interface IUser extends Document {
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   role: UserRole;
   subscription: {
     plan: mongoose.Types.ObjectId;
@@ -36,11 +35,7 @@ const UserSchema = new Schema<IUser>(
       type: String,
       required: true,
     },
-    firstName: {
-      type: String,
-      required: true,
-    },
-    lastName: {
+    fullName: {
       type: String,
       required: true,
     },

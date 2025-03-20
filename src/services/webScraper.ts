@@ -8,14 +8,20 @@ interface ScrapedPage {
 }
 
 export const scrapeWebsite = async (url: string): Promise<ScrapedPage[]> => {
+  // console.log("url", url);
+
   try {
     const visited = new Set<string>();
     const baseUrl = new URL(url).origin;
     const pages: ScrapedPage[] = [];
 
     await scrapePage(url, baseUrl, visited, pages);
+    // console.log("pages", pages);
+
     return pages;
   } catch (error) {
+    console.log("error", error);
+
     console.error("Scraping error:", error);
     throw error;
   }
@@ -33,7 +39,10 @@ const scrapePage = async (
 
   try {
     visited.add(url);
-    const response = await axios.get(url);
+    const response = await axios.get(url, {
+      timeout: 10000,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; YourBot/1.0)" },
+    });
     const $ = cheerio.load(response.data);
 
     // Remove script tags, style tags, and comments
@@ -48,14 +57,18 @@ const scrapePage = async (
       content,
     });
 
-    // Find and process links
+    // Improved link filtering
     const links = $("a[href]")
       .map((_, el) => {
         const href = $(el).attr("href");
         if (!href) return null;
 
         try {
-          return new URL(href, baseUrl).href;
+          const resolvedUrl = new URL(href, baseUrl);
+          // Normalize URL and remove query parameters
+          resolvedUrl.hash = "";
+          resolvedUrl.search = "";
+          return resolvedUrl.href;
         } catch {
           return null;
         }
@@ -65,13 +78,17 @@ const scrapePage = async (
         (href): href is string =>
           href !== null &&
           href.startsWith(baseUrl) &&
-          !href.includes("#") &&
-          !visited.has(href)
+          !visited.has(href) &&
+          // Exclude common non-html extensions
+          !/\.(pdf|jpg|jpeg|png|gif|svg|css|js)$/i.test(href)
       );
 
-    // Limit concurrent requests
+    // Add delay between requests and better concurrency control
     await Promise.all(
-      links.slice(0, 5).map((link) => scrapePage(link, baseUrl, visited, pages))
+      links.slice(0, 5).map(async (link, index) => {
+        await new Promise((resolve) => setTimeout(resolve, index * 500));
+        return scrapePage(link, baseUrl, visited, pages);
+      })
     );
   } catch (error) {
     console.error(`Error scraping ${url}:`, error);

@@ -160,7 +160,7 @@ export const subscribeToPlan = async (
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: user.email,
-        name: `${user.firstName} ${user.lastName}`,
+        name: user.fullName,
       });
       stripeCustomerId = customer.id;
     }
@@ -196,5 +196,51 @@ export const subscribeToPlan = async (
       message: "Error subscribing to plan",
       error: error instanceof Error ? error.message : "Unknown error",
     });
+  }
+};
+
+export const createDefaultFreePlan = async (): Promise<void> => {
+  try {
+    // Check if free plan already exists
+    const existingFreePlan = await Plan.findOne({ price: 0 });
+    if (existingFreePlan) {
+      return;
+    }
+
+    // Create Stripe product for free plan
+    const product = await stripe.products.create({
+      name: "Free Plan",
+      description: "Basic features for getting started",
+    });
+
+    // Create $0 price in Stripe
+    const stripePrice = await stripe.prices.create({
+      product: product.id,
+      unit_amount: 0,
+      currency: "usd",
+      recurring: {
+        interval: "month",
+      },
+    });
+
+    // Create free plan in database
+    await Plan.create({
+      name: "Free Plan",
+      description: "Basic features for getting started",
+      price: 0,
+      avatarLimit: 3,
+      features: [
+        "3 AI Avatars",
+        "Basic Chat Features",
+        "Standard Response Time",
+      ],
+      stripeProductId: product.id,
+      stripePriceId: stripePrice.id,
+    });
+
+    console.log("Default free plan created successfully");
+  } catch (error) {
+    console.error("Create default free plan error:", error);
+    throw error;
   }
 };
