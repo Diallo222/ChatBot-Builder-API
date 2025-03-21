@@ -11,6 +11,14 @@ export interface ICustomFaq {
   answer: string;
 }
 
+export interface IKnowledgefiles {
+  name: string;
+  description: string;
+  files: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export enum LauncherIcon {
   CHAT = "chat",
   MESSAGE = "message",
@@ -46,6 +54,7 @@ export interface IProject extends Document {
     avatarId?: mongoose.Types.ObjectId; // Reference to the Avatar collection
   };
   customFaqs: ICustomFaq[];
+  knowledgefiles: IKnowledgefiles[];
   appearance: IAppearance;
   embedCode?: string;
   training: {
@@ -117,6 +126,19 @@ const ProjectSchema: Schema = new Schema(
         },
         answer: {
           type: String,
+        },
+      },
+    ],
+    knowledgefiles: [
+      {
+        name: {
+          type: String,
+        },
+        description: {
+          type: String,
+        },
+        files: {
+          type: [String],
         },
       },
     ],

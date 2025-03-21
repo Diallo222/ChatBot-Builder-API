@@ -34,7 +34,7 @@ export const generateAIAvatar = async (
       n: 1,
       size: options.size || "1024x1024",
       style: options.style || "natural",
-      quality: "hd",
+      quality: "standard",
     });
 
     // Get the image URL
@@ -84,12 +84,12 @@ const createPromptWithReference = async (
   referenceImage: Express.Multer.File
 ): Promise<string> => {
   try {
-    // Create a base64 representation of the image
-    const base64Image = referenceImage.buffer.toString("base64");
+    // Use the existing Cloudinary URL directly
+    const imageUrl = referenceImage.path;
 
     // Get image description using GPT-4 Vision
     const response = await openai.chat.completions.create({
-      model: "gpt-4-vision-preview",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "user",
@@ -101,7 +101,7 @@ const createPromptWithReference = async (
             {
               type: "image_url",
               image_url: {
-                url: `data:${referenceImage.mimetype};base64,${base64Image}`,
+                url: imageUrl,
               },
             },
           ],

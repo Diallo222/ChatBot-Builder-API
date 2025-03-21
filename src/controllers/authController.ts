@@ -118,7 +118,7 @@ export const getUserProfile = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  console.log("getUserProfile route req.user", req.user);
+  // console.log("getUserProfile route req.user", req.user);
 
   try {
     // req.user is set by the auth middleware
@@ -130,8 +130,8 @@ export const getUserProfile = async (
       res.status(404).json({ message: "User not found" });
       return;
     }
-
-    res.json(user);
+    // console.log("user", user);
+    res.status(200).json(user);
   } catch (error) {
     console.error("Get profile error:", error);
     res.status(500).json({
@@ -157,10 +157,6 @@ export const updateUserProfile = async (
     user.fullName = req.body.fullName || user.fullName;
     user.email = req.body.email || user.email;
 
-    if (req.body.password) {
-      user.password = req.body.password;
-    }
-
     const updatedUser = await user.save();
 
     res.json({
@@ -168,10 +164,48 @@ export const updateUserProfile = async (
       fullName: updatedUser.fullName,
       email: updatedUser.email,
       role: updatedUser.role,
-      token: generateToken(updatedUser._id.toString()),
     });
   } catch (error) {
     console.error("Update profile error:", error);
+    res.status(500).json({
+      message: "Server error",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+export const updatePassword = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  console.log("updatePassword route req.body", req.body);
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user?.id);
+
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    // Verify current password
+    const isPasswordValid = await validatePassword(
+      currentPassword,
+      user.password
+    );
+    if (!isPasswordValid) {
+      res.status(401).json({ message: "Current password is incorrect" });
+      return;
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    console.error("Update password error:", error);
     res.status(500).json({
       message: "Server error",
       error: error instanceof Error ? error.message : "Unknown error",

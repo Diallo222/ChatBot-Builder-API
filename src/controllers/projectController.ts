@@ -204,9 +204,10 @@ export const getProjectById = async (
 };
 
 export const updateProject = async (
-  req: Request,
+  req: Request & { file?: Express.Multer.File & { path: string } },
   res: Response
 ): Promise<void> => {
+  console.log("updateProject CALLED", req.file);
   try {
     const {
       name,
@@ -228,6 +229,39 @@ export const updateProject = async (
       return;
     }
 
+    // Handle avatar data
+    let avatarData;
+    let parsedAvatar = avatar;
+    if (typeof avatar === "string") {
+      try {
+        parsedAvatar = JSON.parse(avatar);
+      } catch (e) {
+        /* handle error */
+      }
+    }
+
+    if (parsedAvatar?.type === "predefined" && parsedAvatar?.avatarId) {
+      // Verify predefined avatar exists
+      const predefinedAvatar = await Avatar.findById(parsedAvatar.avatarId);
+      if (!predefinedAvatar) {
+        res
+          .status(404)
+          .json({ message: "Selected predefined avatar not found" });
+        return;
+      }
+      avatarData = {
+        type: "predefined",
+        imageUrl: predefinedAvatar.imageUrl,
+        avatarId: predefinedAvatar._id,
+      };
+    } else if (req.file) {
+      // Custom avatar from file upload
+      avatarData = {
+        type: "custom",
+        imageUrl: req.file.path, // Cloudinary URL from middleware
+      };
+    }
+
     // Update fields if provided
     if (name) project.name = name;
     if (description) project.description = description;
@@ -236,7 +270,7 @@ export const updateProject = async (
       project.scrapedPages = scrapedPages;
     }
     if (scrapedPages) project.scrapedPages = scrapedPages;
-    if (avatar) project.avatar = avatar;
+    if (avatarData) project.avatar = avatarData as any;
     if (customFaqs) project.customFaqs = customFaqs;
     if (appearance) project.appearance = appearance;
 
@@ -246,7 +280,7 @@ export const updateProject = async (
     }
 
     const updatedProject = await project.save();
-    res.json(updatedProject);
+    res.status(200).json(updatedProject);
   } catch (error) {
     console.error("Update project error:", error);
     res.status(500).json({
@@ -408,6 +442,7 @@ export const getConfiguration = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  console.log("getConfiguration CALLED", req.params);
   try {
     const { id } = req.params;
 

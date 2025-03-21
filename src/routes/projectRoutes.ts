@@ -15,7 +15,11 @@ router.post(
 );
 router.get("/", projectController.getProjects);
 router.get("/:id", projectController.getProjectById);
-router.put("/:id", projectController.updateProject);
+router.put(
+  "/:id",
+  cloudinaryUpload.single("image"),
+  projectController.updateProject
+);
 router.delete("/:id", projectController.deleteProject);
 router.put("/:id/pages", projectController.updateSelectedPages);
 

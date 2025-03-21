@@ -164,6 +164,7 @@ export const createAIAvatar = async (
   try {
     const { name, prompt, style } = req.body;
     const referenceImage = req.file;
+    console.log("referenceImage", referenceImage);
 
     // Generate AI avatar
     const imageUrl = await generateAIAvatar({
@@ -179,8 +180,9 @@ export const createAIAvatar = async (
         req.user!.role === "admin" ? AvatarType.PREDEFINED : AvatarType.CUSTOM,
       imageUrl,
       owner: req.user!.id,
-      isPublic: false,
+      isPublic: req.user!.role === "admin" ? true : false,
     });
+    console.log("avatar CREATED", avatar);
 
     res.status(201).json(avatar);
   } catch (error) {
