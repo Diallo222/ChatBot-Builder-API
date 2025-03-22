@@ -6,10 +6,13 @@ export interface IChatSession extends Document {
   endedAt?: Date;
   duration?: number; // in seconds
   messagesCount: number;
+  threadId: string; // Add OpenAI thread ID
+  assistantId: string; // Add OpenAI assistant ID
   messages: Array<{
     role: "user" | "assistant";
     content: string;
     timestamp: Date;
+    messageId: string; // Add OpenAI message ID
   }>;
   metadata: {
     userAgent?: string;
@@ -39,6 +42,14 @@ const ChatSessionSchema: Schema = new Schema(
       type: Number,
       default: 0,
     },
+    threadId: {
+      type: String,
+      required: true,
+    },
+    assistantId: {
+      type: String,
+      required: true,
+    },
     messages: [
       {
         role: {
@@ -53,6 +64,10 @@ const ChatSessionSchema: Schema = new Schema(
         timestamp: {
           type: Date,
           default: Date.now,
+        },
+        messageId: {
+          type: String,
+          required: true,
         },
       },
     ],

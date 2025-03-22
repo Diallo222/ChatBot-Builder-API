@@ -15,5 +15,11 @@ router.get(
   chatSessionController.getChatSessionStats
 );
 router.get("/:sessionId", protect, chatSessionController.getChatSessionDetails);
+router.post(
+  "/project/:projectId",
+  protect,
+  chatSessionController.createChatSession
+);
+router.post("/:sessionId/messages", protect, chatSessionController.sendMessage);
 
 export default router;

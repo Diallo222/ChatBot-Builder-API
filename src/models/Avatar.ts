@@ -10,6 +10,7 @@ export interface IAvatar extends Document {
   name: string;
   type: AvatarType;
   imageUrl: string;
+  prompt: string;
   owner?: mongoose.Types.ObjectId;
   isPublic: boolean;
   createdAt: Date;
@@ -24,6 +25,7 @@ const AvatarSchema: Schema = new Schema(
       enum: Object.values(AvatarType),
       default: AvatarType.PREDEFINED,
     },
+    prompt: { type: String },
     imageUrl: { type: String, required: true },
     owner: { type: Schema.Types.ObjectId, ref: "User" },
     isPublic: { type: Boolean, default: false },

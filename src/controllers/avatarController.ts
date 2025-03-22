@@ -8,7 +8,7 @@ export const createAvatar = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { name, type } = req.body;
+    const { name, type, prompt } = req.body;
     const file = req.file;
 
     if (!file) {
@@ -25,6 +25,7 @@ export const createAvatar = async (
       imageUrl,
       owner: req.user!.id,
       isPublic: false,
+      prompt,
     });
 
     res.status(201).json(avatar);
@@ -37,16 +38,54 @@ export const createAvatar = async (
   }
 };
 
+// Admin endpoints
+export const createPublicAvatar = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { name, prompt } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ message: "No image file provided" });
+      return;
+    }
+
+    const imageUrl = await uploadToStorage(file);
+
+    const avatar = await Avatar.create({
+      name,
+      type: AvatarType.PREDEFINED,
+      imageUrl,
+      prompt,
+      isPublic: true,
+    });
+
+    res.status(201).json(avatar);
+  } catch (error) {
+    console.error("Create public avatar error:", error);
+    res.status(500).json({
+      message: "Error creating public avatar",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
 export const getAvatars = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    // Get both public avatars and user's custom avatars
-    const avatars = await Avatar.find({
-      $or: [{ isPublic: true }, { owner: req.user!.id }],
-    }).sort({ createdAt: -1 });
-    console.log("ALL AVATARS", avatars);
+    // Check if the request is coming from admin routes
+    const isAdminRoute = req.baseUrl.includes("/admin");
+    console.log("isAdminRoute", isAdminRoute);
+    // Different query based on route
+    const query = isAdminRoute
+      ? { $or: [{ type: AvatarType.PREDEFINED }, { isPublic: true }] }
+      : { $or: [{ isPublic: true }, { owner: req.user!.id }] };
+
+    const avatars = await Avatar.find(query).sort({ createdAt: -1 });
+
     res.status(200).json(avatars);
   } catch (error) {
     console.error("Get avatars error:", error);
@@ -62,7 +101,7 @@ export const updateAvatar = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { name } = req.body;
+    const { name, prompt } = req.body;
     const file = req.file;
 
     const avatar = await Avatar.findOne({
@@ -76,7 +115,7 @@ export const updateAvatar = async (
     }
 
     if (name) avatar.name = name;
-
+    if (prompt) avatar.prompt = prompt;
     if (file) {
       // Delete old image
       await deleteFromStorage(avatar.imageUrl);
@@ -124,39 +163,6 @@ export const deleteAvatar = async (
   }
 };
 
-// Admin endpoints
-export const createPublicAvatar = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const { name } = req.body;
-    const file = req.file;
-
-    if (!file) {
-      res.status(400).json({ message: "No image file provided" });
-      return;
-    }
-
-    const imageUrl = await uploadToStorage(file);
-
-    const avatar = await Avatar.create({
-      name,
-      type: AvatarType.PREDEFINED,
-      imageUrl,
-      isPublic: true,
-    });
-
-    res.status(201).json(avatar);
-  } catch (error) {
-    console.error("Create public avatar error:", error);
-    res.status(500).json({
-      message: "Error creating public avatar",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-};
-
 export const createAIAvatar = async (
   req: Request,
   res: Response
@@ -164,7 +170,6 @@ export const createAIAvatar = async (
   try {
     const { name, prompt, style } = req.body;
     const referenceImage = req.file;
-    console.log("referenceImage", referenceImage);
 
     // Generate AI avatar
     const imageUrl = await generateAIAvatar({
@@ -182,7 +187,6 @@ export const createAIAvatar = async (
       owner: req.user!.id,
       isPublic: req.user!.role === "admin" ? true : false,
     });
-    console.log("avatar CREATED", avatar);
 
     res.status(201).json(avatar);
   } catch (error) {

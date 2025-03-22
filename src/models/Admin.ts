@@ -1,6 +1,17 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
+export enum AdminRole {
+  ADMIN = "admin",
+}
+
+export interface IAdmin extends Document {
+  _id: mongoose.Types.ObjectId;
+  email: string;
+  password: string;
+  role: AdminRole;
+}
+
 const adminSchema = new mongoose.Schema(
   {
     email: {

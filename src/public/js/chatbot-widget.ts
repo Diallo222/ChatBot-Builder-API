@@ -1,13 +1,33 @@
+import { Socket, io } from "socket.io-client";
+
+// Declare global window interface
+declare global {
+  interface Window {
+    initChatbot: (config: ChatbotConfig) => void;
+  }
+}
+
 interface ChatbotConfig {
   projectId: string;
   position?: "bottom-right" | "bottom-left";
   primaryColor?: string;
   secondaryColor?: string;
+  config: {
+    appearance: {
+      primaryColor: string;
+      launcherIcon: string;
+      customIconUrl?: string;
+    };
+    configuration: {
+      welcomeMessage: string;
+      sampleQuestions: string[];
+    };
+  };
 }
 
 class ChatbotWidget {
   private container: HTMLDivElement;
-  private socket: any; // Socket.io client
+  private socket: Socket;
   private conversationId: string | null = null;
   private messageHistory: Array<{
     role: "user" | "assistant";
@@ -25,9 +45,15 @@ class ChatbotWidget {
     this.container.id = "chatbot-widget-container";
     this.container.style.position = "fixed";
     this.container.style.bottom = "20px";
+    this.container.style.zIndex = "999999";
     this.container.style[
       this.config.position === "bottom-left" ? "left" : "right"
     ] = "20px";
+
+    const primaryColor =
+      this.config.config.appearance.primaryColor || "#3498db";
+    const welcomeMessage = this.config.config.configuration.welcomeMessage;
+    const sampleQuestions = this.config.config.configuration.sampleQuestions;
 
     // Add widget HTML
     this.container.innerHTML = `
@@ -41,7 +67,7 @@ class ChatbotWidget {
         overflow: hidden;
       ">
         <div class="chatbot-header" style="
-          background: ${this.config.primaryColor || "#3498db"};
+          background: ${primaryColor};
           color: white;
           padding: 15px;
           display: flex;
@@ -49,13 +75,60 @@ class ChatbotWidget {
           align-items: center;
         ">
           <span>Chat Support</span>
-          <button class="close-btn">×</button>
+          <button class="close-btn" style="
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+          ">×</button>
         </div>
         <div class="chatbot-messages" style="
           height: 400px;
           overflow-y: auto;
           padding: 15px;
-        "></div>
+        ">
+          ${
+            welcomeMessage
+              ? `
+            <div class="message assistant" style="
+              margin: 10px 0;
+              padding: 10px;
+              border-radius: 10px;
+              background: #f5f5f5;
+              max-width: 80%;
+            ">${welcomeMessage}</div>
+          `
+              : ""
+          }
+          ${
+            sampleQuestions?.length
+              ? `
+            <div class="sample-questions" style="
+              margin-top: 10px;
+              display: flex;
+              flex-direction: column;
+              gap: 5px;
+            ">
+              ${sampleQuestions
+                .map(
+                  (q) => `
+                <button class="sample-question" style="
+                  background: #f5f5f5;
+                  border: 1px solid #ddd;
+                  border-radius: 4px;
+                  padding: 8px;
+                  text-align: left;
+                  cursor: pointer;
+                ">${q}</button>
+              `
+                )
+                .join("")}
+            </div>
+          `
+              : ""
+          }
+        </div>
         <div class="chatbot-input" style="
           padding: 15px;
           border-top: 1px solid #eee;
@@ -69,11 +142,12 @@ class ChatbotWidget {
           <button class="send-btn" style="
             width: 18%;
             padding: 8px;
-            background: ${this.config.secondaryColor || "#2ecc71"};
+            background: ${primaryColor};
             color: white;
             border: none;
             border-radius: 4px;
             margin-left: 2%;
+            cursor: pointer;
           ">Send</button>
         </div>
       </div>
@@ -81,15 +155,16 @@ class ChatbotWidget {
         width: 60px;
         height: 60px;
         border-radius: 50%;
-        background: ${this.config.primaryColor || "#3498db"};
+        background: ${primaryColor};
         color: white;
         border: none;
         cursor: pointer;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
       ">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-        </svg>
+        ${this.getLauncherIcon()}
       </button>
     `;
 
@@ -126,11 +201,19 @@ class ChatbotWidget {
   }
 
   private addEventListeners(): void {
-    const widget = this.container.querySelector(".chatbot-widget")!;
-    const toggleBtn = this.container.querySelector(".chatbot-toggle")!;
-    const closeBtn = this.container.querySelector(".close-btn")!;
-    const input = this.container.querySelector("input")!;
-    const sendBtn = this.container.querySelector(".send-btn")!;
+    const widget = this.container.querySelector(
+      ".chatbot-widget"
+    ) as HTMLDivElement;
+    const toggleBtn = this.container.querySelector(
+      ".chatbot-toggle"
+    ) as HTMLButtonElement;
+    const closeBtn = this.container.querySelector(
+      ".close-btn"
+    ) as HTMLButtonElement;
+    const input = this.container.querySelector("input") as HTMLInputElement;
+    const sendBtn = this.container.querySelector(
+      ".send-btn"
+    ) as HTMLButtonElement;
 
     toggleBtn.addEventListener("click", () => {
       widget.style.display = widget.style.display === "none" ? "block" : "none";
@@ -212,6 +295,20 @@ class ChatbotWidget {
     messageElement.textContent = content;
     messagesContainer.appendChild(messageElement);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  private getLauncherIcon(): string {
+    const icon = this.config.config.appearance.launcherIcon;
+    const customUrl = this.config.config.appearance.customIconUrl;
+
+    if (icon === "CUSTOM" && customUrl) {
+      return `<img src="${customUrl}" width="24" height="24" alt="Chat" />`;
+    }
+
+    // Default chat icon SVG
+    return `<svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+      <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+    </svg>`;
   }
 }
 

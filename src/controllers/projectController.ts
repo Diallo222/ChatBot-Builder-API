@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import Project from "../models/Project";
+import Project, { IProject } from "../models/Project";
 import User from "../models/User";
 import { scrapeWebsite } from "../services/webScraper";
 import { IPlan } from "../models/Plan";
@@ -141,6 +141,8 @@ export const createProject = async (
       scrapedPages: scrapedPagesParsed,
       ...(assistantId && { assistantId }),
     });
+    project.embedCode = generateEmbedCode(project);
+    await project.save();
 
     // console.log("project created !!!!!!!!!!", project, assistantId);
 
@@ -186,13 +188,15 @@ export const getProjectById = async (
     const project = await Project.findOne({
       _id: req.params.id,
       owner: req.user!.id,
-    }).populate("avatar");
+    })
+      .populate("avatar")
+      .select("+appearance +configuration");
 
     if (!project) {
       res.status(404).json({ message: "Project not found" });
       return;
     }
-
+    console.log("project", project);
     res.json(project);
   } catch (error) {
     console.error("Get project error:", error);
@@ -274,11 +278,8 @@ export const updateProject = async (
     if (customFaqs) project.customFaqs = customFaqs;
     if (appearance) project.appearance = appearance;
 
-    // Generate embed code if not exists
-    if (!project.embedCode) {
-      project.embedCode = generateEmbedCode(project._id);
-    }
-
+    project.embedCode = generateEmbedCode(project);
+    console.log("project.embedCode", project.embedCode);
     const updatedProject = await project.save();
     res.status(200).json(updatedProject);
   } catch (error) {
@@ -361,16 +362,40 @@ export const updateSelectedPages = async (
 };
 
 // Helper function to generate embed code
-const generateEmbedCode = (projectId: string): string => {
-  return `
-<script src="${process.env.APP_URL}/chatbot.js"></script>
-<script>
-  initChatbot({
-    projectId: "${projectId}",
-    position: "bottom-right"
+const generateEmbedCode = (project: IProject): string => {
+  const configData = JSON.stringify({
+    projectId: project._id,
+    appearance: {
+      primaryColor: project.appearance.mainColor,
+      launcherIcon: project.appearance.launcherIcon,
+      customIconUrl: project.appearance.customIconUrl,
+    },
+    configuration: {
+      welcomeMessage: project.configuration.welcomeMessage,
+      sampleQuestions: project.configuration.sampleQuestions,
+    },
   });
+
+  return `
+<!-- Chatbot Widget -->
+<script>
+  (function() {
+    const script = document.createElement('script');
+    script.src = "${process.env.APP_URL}/chatbot-widget.js";
+    script.async = true;
+    script.onload = function() {
+      window.initChatbot({
+        projectId: "${project._id}",
+        position: "bottom-right",
+        primaryColor: "${project.appearance.mainColor}",
+        secondaryColor: "${project.appearance.mainColor}",
+        config: ${configData}
+      });
+    };
+    document.head.appendChild(script);
+  })();
 </script>
-  `.trim();
+`;
 };
 
 export const updateConfiguration = async (
@@ -380,6 +405,17 @@ export const updateConfiguration = async (
   try {
     const { id } = req.params;
     const { welcomeMessage, sampleQuestions, appearance } = req.body;
+
+    // First find the project to ensure it exists and belongs to the user
+    const project = await Project.findOne({
+      _id: id,
+      owner: req.user!.id,
+    });
+
+    if (!project) {
+      res.status(404).json({ message: "Project not found" });
+      return;
+    }
 
     // Validate appearance if provided
     if (appearance) {
@@ -411,24 +447,37 @@ export const updateConfiguration = async (
       }
     }
 
-    const project = await Project.findByIdAndUpdate(
+    // Update only the provided fields
+    const updateData: any = {};
+    if (welcomeMessage !== undefined) {
+      console.log("welcomeMessage", welcomeMessage);
+      updateData["configuration.welcomeMessage"] = welcomeMessage;
+    }
+    if (sampleQuestions !== undefined) {
+      console.log("sampleQuestions", sampleQuestions);
+      updateData["configuration.sampleQuestions"] = sampleQuestions;
+    }
+    if (appearance !== undefined) {
+      console.log("DEEP APPEARANCE", appearance);
+      updateData["appearance"] = appearance;
+    }
+
+    // Update the project with the new configuration
+    const updatedProject = await Project.findByIdAndUpdate(
       id,
-      {
-        $set: {
-          "configuration.welcomeMessage": welcomeMessage,
-          "configuration.sampleQuestions": sampleQuestions,
-          "configuration.appearance": appearance,
-        },
-      },
+      { $set: updateData },
       { new: true, runValidators: true }
     );
 
-    if (!project) {
+    if (!updatedProject) {
       res.status(404).json({ message: "Project not found" });
       return;
     }
+    updatedProject.embedCode = generateEmbedCode(updatedProject);
+    console.log("updatedProject.embedCode", updatedProject.embedCode);
+    await updatedProject.save();
 
-    res.json(project.configuration);
+    res.status(200).json(updatedProject.configuration);
   } catch (error) {
     console.error("Update configuration error:", error);
     res.status(500).json({
@@ -489,6 +538,11 @@ export const resetConfiguration = async (
       },
     };
 
+    project.appearance = {
+      mainColor: "#3498db",
+      launcherIcon: LauncherIcon.CHAT,
+    };
+
     await project.save();
     res.json(project.configuration);
   } catch (error) {
@@ -504,6 +558,7 @@ export const updateProjectAvatar = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  console.log("updateProjectAvatar CALLED", req.body);
   try {
     const { id } = req.params;
     const { avatarId } = req.body;
@@ -538,7 +593,7 @@ export const updateProjectAvatar = async (
       res.status(404).json({ message: "Project not found" });
       return;
     }
-
+    console.log("project.avatar DONE", project.avatar);
     res.json({
       message: "Project avatar updated successfully",
       avatar: project.avatar,

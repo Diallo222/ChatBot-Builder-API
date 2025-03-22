@@ -20,14 +20,14 @@ export interface IKnowledgefiles {
 }
 
 export enum LauncherIcon {
-  CHAT = "chat",
-  MESSAGE = "message",
-  HELP = "help",
-  SUPPORT = "support",
-  ROBOT = "robot",
-  ASSISTANT = "assistant",
-  BUBBLE = "bubble",
-  CUSTOM = "custom", // If they want to use their own icon
+  CHAT = "CHAT",
+  MESSAGE = "MESSAGE",
+  HELP = "HELP",
+  SUPPORT = "SUPPORT",
+  ROBOT = "ROBOT",
+  ASSISTANT = "ASSISTANT",
+  BUBBLE = "BUBBLE",
+  CUSTOM = "CUSTOM", // If they want to use their own icon
 }
 
 export interface IAppearance {

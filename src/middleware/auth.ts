@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User, { IUser } from "../models/User";
-import { verifyToken } from "../services/authService";
+import { Admin, IAdmin } from "../models/Admin";
+import { verifyToken, verifyAdminToken } from "../services/authService";
 import rateLimit from "express-rate-limit";
 
 interface JwtPayload {
@@ -14,7 +15,7 @@ declare global {
     interface Request {
       user?: IUser;
       csrfToken(): string;
-      admin?: any;
+      admin?: { id: string };
     }
   }
 }
@@ -78,18 +79,25 @@ export const admin = (
   }
 };
 
-export const auth = (req: Request, res: Response, next: NextFunction) => {
+export const auth = async (req: Request, res: Response, next: NextFunction) => {
+  console.log(
+    "auth middleware req.cookies",
+    req.cookies,
+    "req.admin",
+    req.admin
+  );
   try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
-
-    if (!token) {
-      throw new Error();
+    const accessToken = req.cookies.accessToken;
+    console.log("auth middleware accessToken", accessToken);
+    if (!accessToken) {
+      return res.status(401).json({ message: "Authorization token required" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
-    req.admin = decoded;
+    const decoded = verifyAdminToken(accessToken);
+    req.admin = { id: decoded.adminId };
     next();
   } catch (error) {
-    res.status(401).json({ message: "Please authenticate" });
+    console.error("Authentication error:", error);
+    res.status(401).json({ message: "Invalid or expired token" });
   }
 };

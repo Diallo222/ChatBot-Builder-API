@@ -6,7 +6,7 @@ dotenv.config();
 
 const createDefaultAdmin = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI as string);
+    await mongoose.connect(process.env.MONGO_URI as string);
 
     const defaultAdmin = new Admin({
       email: "admin@example.com",

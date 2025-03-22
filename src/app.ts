@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db";
+import adminRoutes from "./routes/adminRoutes";
 import authRoutes from "./routes/authRoutes";
 import planRoutes from "./routes/planRoutes";
 import { handleStripeWebhook } from "./services/paymentService";
@@ -45,14 +46,15 @@ app.use(
     origin: process.env.CLIENT_URL,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "x-csrf-token"],
+    allowedHeaders: ["Content-Type", "x-csrf-token", "Authorization"],
+    exposedHeaders: ["x-csrf-token"],
   })
 );
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 10000, // limit each IP to 100 requests per windowMs
 });
 app.use(limiter);
 
@@ -66,12 +68,13 @@ app.use(
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     },
   })
 );
 
 // Routes
+app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/projects", projectRoutes);
@@ -116,7 +119,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/csrf-token", (req, res) => {
-  console.log("csrfToken", req.csrfToken());
+  // console.log("csrfToken", req.csrfToken());
   res.json({ csrfToken: req.csrfToken() });
 });
 

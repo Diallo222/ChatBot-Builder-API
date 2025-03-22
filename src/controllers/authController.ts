@@ -243,8 +243,18 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const logout = async (req: Request, res: Response): Promise<void> => {
-  clearTokenCookies(res);
-  res.json({ message: "Logged out successfully" });
+  console.log("logout route req.cookies", req.cookies);
+  try {
+    clearTokenCookies(res);
+    console.log("Logged out successfully");
+    res.status(200).json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({
+      message: "Error during logout",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
 };
 
 export const me = async (req: Request, res: Response): Promise<void> => {
