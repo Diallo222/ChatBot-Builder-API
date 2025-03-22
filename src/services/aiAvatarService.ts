@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { Readable } from "stream";
 import { uploadToStorage } from "./storageService";
+import fal from "../config/falConfig";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -11,6 +12,7 @@ interface GenerateAvatarOptions {
   referenceImage?: Express.Multer.File;
   style?: "natural" | "vivid";
   size?: "1024x1024" | "1792x1024" | "1024x1792";
+  seed?: number;
 }
 
 export const generateAIAvatar = async (
@@ -27,18 +29,16 @@ export const generateAIAvatar = async (
       );
     }
 
-    // Generate image using DALL-E
-    const response = await openai.images.generate({
-      model: "dall-e-3",
-      prompt: enhancePrompt(finalPrompt),
-      n: 1,
-      size: options.size || "1024x1024",
-      style: options.style || "natural",
-      quality: "standard",
-    });
+    // Generate image using Fal
+    const response = await fal.subscribe("fal-ai/flux-pro/v1.1", {
+      input: {
+        prompt: enhancePrompt(finalPrompt),
 
-    // Get the image URL
-    const imageUrl = response.data[0]?.url;
+        seed: options.seed,
+      },
+    });
+    console.log("response", response.data);
+    const imageUrl = response.data.images[0].url;
     if (!imageUrl) {
       throw new Error("No image generated");
     }

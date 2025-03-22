@@ -76,16 +76,11 @@ export const getAvatars = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Check if the request is coming from admin routes
-    const isAdminRoute = req.baseUrl.includes("/admin");
-    console.log("isAdminRoute", isAdminRoute);
-    // Different query based on route
-    const query = isAdminRoute
-      ? { $or: [{ type: AvatarType.PREDEFINED }, { isPublic: true }] }
-      : { $or: [{ isPublic: true }, { owner: req.user!.id }] };
-
-    const avatars = await Avatar.find(query).sort({ createdAt: -1 });
-
+    // Get both public avatars and user's custom avatars
+    const avatars = await Avatar.find({
+      $or: [{ isPublic: true }, { owner: req.user!.id }],
+    }).sort({ createdAt: -1 });
+    console.log("ALL AVATARS", avatars);
     res.status(200).json(avatars);
   } catch (error) {
     console.error("Get avatars error:", error);
@@ -96,17 +91,36 @@ export const getAvatars = async (
   }
 };
 
+export const getPublicAvatars = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const avatars = await Avatar.find({ isPublic: true }).sort({
+      createdAt: -1,
+    });
+    res.status(200).json(avatars);
+  } catch (error) {
+    console.error("Get public avatars error:", error);
+    res.status(500).json({
+      message: "Error fetching public avatars",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
 export const updateAvatar = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { name, prompt } = req.body;
-    const file = req.file;
+    const { id } = req.params;
+    const { name = "", prompt = "" } = req.body;
+    const referenceImage = req.file;
 
     const avatar = await Avatar.findOne({
-      _id: req.params.id,
-      owner: req.user!.id,
+      _id: id,
+      // owner: req.user!.id, // Ensure user owns the avatar
     });
 
     if (!avatar) {
@@ -114,13 +128,26 @@ export const updateAvatar = async (
       return;
     }
 
-    if (name) avatar.name = name;
-    if (prompt) avatar.prompt = prompt;
-    if (file) {
-      // Delete old image
+    // Update name if provided
+    if (name.trim()) {
+      avatar.name = name.trim();
+    }
+
+    // Generate new AI avatar if prompt or reference image is provided
+    if (prompt.trim() || referenceImage) {
+      // Delete old image if it exists
       await deleteFromStorage(avatar.imageUrl);
-      // Upload new image
-      avatar.imageUrl = await uploadToStorage(file);
+
+      // Generate new avatar
+      const imageUrl = await generateAIAvatar({
+        prompt: prompt.trim() || avatar.prompt, // Use existing prompt if new one not provided
+        referenceImage,
+      });
+
+      avatar.imageUrl = imageUrl;
+      if (prompt.trim()) {
+        avatar.prompt = prompt.trim();
+      }
     }
 
     const updatedAvatar = await avatar.save();
@@ -168,24 +195,31 @@ export const createAIAvatar = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { name, prompt, style } = req.body;
+    // Extract data from FormData
+    const name = req.body.name as string;
+    const prompt = req.body.prompt as string;
+    const style = req.body.style as string;
     const referenceImage = req.file;
+
+    if (!name || !prompt) {
+      res.status(400).json({ message: "Name and prompt are required" });
+      return;
+    }
 
     // Generate AI avatar
     const imageUrl = await generateAIAvatar({
       prompt,
       referenceImage,
-      style,
     });
 
     // Create avatar in database
     const avatar = await Avatar.create({
       name,
-      type:
-        req.user!.role === "admin" ? AvatarType.PREDEFINED : AvatarType.CUSTOM,
+      type: AvatarType.CUSTOM,
       imageUrl,
       owner: req.user!.id,
-      isPublic: req.user!.role === "admin" ? true : false,
+      isPublic: false,
+      prompt, // Also save the prompt in the database
     });
 
     res.status(201).json(avatar);
@@ -193,6 +227,57 @@ export const createAIAvatar = async (
     console.error("Create AI avatar error:", error);
     res.status(500).json({
       message: "Error creating AI avatar",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+export const createPublicAIAvatar = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Parse name and prompt, ensuring they are strings
+    const name = String(req.body.name || "").trim();
+    const prompt = String(req.body.prompt || "").trim();
+    const referenceImage = req.file;
+
+    console.log("Parsed values:", {
+      name,
+      prompt,
+      rawBody: req.body,
+      contentType: req.headers["content-type"],
+    });
+
+    if (!name || !prompt) {
+      res.status(400).json({
+        message: "Name and prompt are required",
+        receivedData: { name, prompt },
+        rawBody: req.body,
+      });
+      return;
+    }
+
+    // Generate AI avatar
+    const imageUrl = await generateAIAvatar({
+      prompt,
+      referenceImage,
+    });
+
+    // Create avatar in database
+    const avatar = await Avatar.create({
+      name,
+      type: AvatarType.PREDEFINED,
+      imageUrl,
+      prompt,
+      isPublic: true,
+    });
+
+    res.status(201).json(avatar);
+  } catch (error) {
+    console.error("Create public AI avatar error:", error);
+    res.status(500).json({
+      message: "Error creating public AI avatar",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }

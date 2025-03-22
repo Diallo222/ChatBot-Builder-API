@@ -80,15 +80,8 @@ export const admin = (
 };
 
 export const auth = async (req: Request, res: Response, next: NextFunction) => {
-  console.log(
-    "auth middleware req.cookies",
-    req.cookies,
-    "req.admin",
-    req.admin
-  );
   try {
     const accessToken = req.cookies.accessToken;
-    console.log("auth middleware accessToken", accessToken);
     if (!accessToken) {
       return res.status(401).json({ message: "Authorization token required" });
     }

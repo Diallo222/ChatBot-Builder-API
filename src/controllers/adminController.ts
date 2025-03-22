@@ -40,7 +40,7 @@ export const login = async (req: express.Request, res: express.Response) => {
 };
 
 export const refresh = async (req: express.Request, res: express.Response) => {
-  console.log("refresh route req.cookies", req.cookies);
+  //   console.log("refresh route req.cookies", req.cookies);
   try {
     const refreshToken = req.cookies.refreshToken;
 
@@ -93,44 +93,6 @@ export const updateCredentials = async (
 
     await admin.save();
     res.json({ message: "Admin credentials updated successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-export const getAvatars = async (
-  req: express.Request,
-  res: express.Response
-) => {
-  try {
-    const avatars = await Avatar.find();
-    res.json(avatars);
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-export const updateAvatar = async (
-  req: express.Request,
-  res: express.Response
-) => {
-  try {
-    const { prompt, name } = req.body;
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
-
-    const avatar = await Avatar.findByIdAndUpdate(
-      req.params.id,
-      { imageUrl: req.file.path, prompt, name },
-      { new: true }
-    );
-
-    if (!avatar) {
-      return res.status(404).json({ message: "Avatar not found" });
-    }
-
-    res.json(avatar);
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
