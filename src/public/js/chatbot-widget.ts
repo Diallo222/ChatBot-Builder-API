@@ -176,11 +176,21 @@ class ChatbotWidget {
   }
 
   private initializeSocket(): void {
-    // Initialize Socket.io client
-    this.socket = io(process.env.WEBSOCKET_URL || "http://localhost:4000");
+    // Initialize Socket.io client with current origin if WEBSOCKET_URL is not set
+    const websocketUrl = process.env.WEBSOCKET_URL || window.location.origin;
+    this.socket = io(websocketUrl);
 
     this.socket.on("connect", () => {
+      console.log("Socket connected successfully");
       this.socket.emit("join_project", this.config.projectId);
+    });
+
+    this.socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+      this.addMessage(
+        "assistant",
+        "Unable to establish connection. Please try again later."
+      );
     });
 
     this.socket.on(

@@ -13,6 +13,7 @@ import conversationRoutes from "./routes/conversationRoutes";
 import chatSessionRoutes from "./routes/chatSessionRoutes";
 import ticketRoutes from "./routes/ticketRoutes";
 import trainingRoutes from "./routes/trainingRoutes";
+import forgotRoutes from "./routes/forgotRoutes";
 import cookieParser from "cookie-parser";
 import csrf from "csurf";
 import helmet from "helmet";
@@ -87,6 +88,7 @@ app.use("/api/tickets", ticketRoutes);
 app.use("/api/training", trainingRoutes);
 app.use("/api", tutorialRoutes);
 app.use("/api/blogs", blogRoutes);
+app.use("/api/forgot", forgotRoutes);
 
 // Stripe webhook route
 app.post(

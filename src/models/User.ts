@@ -11,6 +11,8 @@ export interface IUser extends Document {
   password: string;
   fullName: string;
   role: UserRole;
+  resetCode: string | null;
+  resetCodeExpiry: Date | null;
   subscription: {
     plan: mongoose.Types.ObjectId;
     startDate: Date;
@@ -43,6 +45,14 @@ const UserSchema = new Schema<IUser>(
       type: String,
       enum: Object.values(UserRole),
       default: UserRole.USER,
+    },
+    resetCode: {
+      type: String,
+      default: null,
+    },
+    resetCodeExpiry: {
+      type: Date,
+      default: null,
     },
     subscription: {
       plan: {
