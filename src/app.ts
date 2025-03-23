@@ -18,6 +18,8 @@ import csrf from "csurf";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { createDefaultFreePlan } from "./controllers/planController";
+import tutorialRoutes from "./routes/tutorialRoutes";
+import blogRoutes from "./routes/blogRoutes";
 // Load environment variables
 dotenv.config();
 
@@ -83,6 +85,8 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/chat-sessions", chatSessionRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/training", trainingRoutes);
+app.use("/api", tutorialRoutes);
+app.use("/api/blogs", blogRoutes);
 
 // Stripe webhook route
 app.post(

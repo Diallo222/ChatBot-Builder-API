@@ -3,9 +3,6 @@ import Ticket from "../models/Ticket";
 import { uploadFiles } from "../utils/fileUpload";
 
 export const createTicket = async (req: Request, res: Response) => {
-  console.log("req.body", req.body);
-  console.log("req.files", req.files);
-
   try {
     const { subject, description } = req.body;
     const files = req.files as Express.Multer.File[];
@@ -30,7 +27,7 @@ export const createTicket = async (req: Request, res: Response) => {
 export const getUserTickets = async (req: Request, res: Response) => {
   try {
     const tickets = await Ticket.find({ user: req.user?._id });
-    console.log("tickets", tickets[1].attachments);
+    console.log("tickets", tickets[0]);
 
     res.status(200).json(tickets);
   } catch (error) {
@@ -40,8 +37,31 @@ export const getUserTickets = async (req: Request, res: Response) => {
 
 export const getAdminTickets = async (req: Request, res: Response) => {
   try {
-    const tickets = await Ticket.find().populate("user", "email name");
-    res.json(tickets);
+    const { search } = req.query;
+
+    let query: any = Ticket.find();
+
+    if (search) {
+      // Join with users collection and search by name
+      query = query.populate({
+        path: "user",
+        match: {
+          name: { $regex: search as string, $options: "i" },
+        },
+        select: "email name",
+      });
+    } else {
+      query = query.populate("user", "email name");
+    }
+
+    const tickets = await query.exec();
+
+    // Filter out tickets where user is null (when name doesn't match)
+    const filteredTickets = search
+      ? tickets.filter((ticket) => ticket.user !== null)
+      : tickets;
+
+    res.json(filteredTickets);
   } catch (error) {
     res.status(500).json({ error: "Error fetching tickets" });
   }
@@ -51,6 +71,8 @@ export const respondToTicket = async (req: Request, res: Response) => {
   try {
     const { ticketId } = req.params;
     const { response } = req.body;
+    console.log("ticketId", ticketId);
+    console.log("response", response);
 
     const ticket = await Ticket.findByIdAndUpdate(
       ticketId,

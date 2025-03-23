@@ -1,5 +1,5 @@
 import express from "express";
-import { protect, admin } from "../middleware/auth";
+import { protect, auth } from "../middleware/auth";
 import { uploadFilesMiddleware, upload } from "../utils/fileUpload";
 import {
   createTicket,
@@ -18,7 +18,7 @@ router.post(
   createTicket
 );
 router.get("/my-tickets", protect, getUserTickets);
-router.get("/admin", protect, admin, getAdminTickets);
-router.put("/:ticketId/respond", protect, admin, respondToTicket);
+router.get("/", auth, getAdminTickets);
+router.put("/:ticketId/respond", auth, respondToTicket);
 
 export default router;

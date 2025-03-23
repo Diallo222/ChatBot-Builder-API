@@ -226,7 +226,7 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
 
     const decoded = verifyToken(refreshToken, true);
     const user = await User.findById(decoded.userId); // Use 'id' instead of 'userId'
-
+    console.log("user", user);
     if (!user) {
       res.status(401).json({ message: "User not found" });
       return;

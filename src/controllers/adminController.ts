@@ -10,6 +10,8 @@ import {
   clearTokenCookies,
   verifyAdminToken,
 } from "../services/authService";
+import Plan from "../models/Plan";
+import { stripe } from "../config/stripe";
 
 export const login = async (req: express.Request, res: express.Response) => {
   try {
@@ -282,4 +284,211 @@ export const handleCSRFError = (
     });
   }
   next(err);
+};
+
+export const getSubscriptionsOverview = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  try {
+    // Get date range from query params or default to last 30 days
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+
+    // Get all stripe payments
+    const charges = await stripe.charges.list({
+      created: {
+        gte: Math.floor(startDate.getTime() / 1000),
+        lte: Math.floor(endDate.getTime() / 1000),
+      },
+      limit: 100,
+    });
+
+    // Calculate metrics
+    const totalRevenue = charges.data.reduce(
+      (sum, charge) => sum + charge.amount / 100,
+      0
+    );
+
+    const successfulTransactions = charges.data.filter(
+      (charge) => charge.status === "succeeded"
+    ).length;
+
+    const failedTransactions = charges.data.filter(
+      (charge) => charge.status === "failed"
+    ).length;
+
+    // Get active subscriptions count
+    const activeSubscriptions = await User.countDocuments({
+      "subscription.status": "active",
+    });
+
+    // Get subscription distribution by plan
+    const subscriptionsByPlan = await User.aggregate([
+      {
+        $match: {
+          "subscription.status": "active",
+        },
+      },
+      {
+        $lookup: {
+          from: "plans",
+          localField: "subscription.plan",
+          foreignField: "_id",
+          as: "planDetails",
+        },
+      },
+      {
+        $group: {
+          _id: { $first: "$planDetails.name" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    res.json({
+      overview: {
+        totalRevenue: Number(totalRevenue.toFixed(2)),
+        successfulTransactions,
+        failedTransactions,
+        activeSubscriptions,
+      },
+      subscriptionsByPlan,
+      periodStart: startDate,
+      periodEnd: endDate,
+    });
+  } catch (error) {
+    console.error("Subscriptions overview error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getUsersTransactions = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  try {
+    const { page = 1, limit = 10, search } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Build match stage based on search parameter
+    const matchStage = search
+      ? {
+          $match: {
+            $or: [
+              { fullName: { $regex: search as string, $options: "i" } },
+              { email: { $regex: search as string, $options: "i" } },
+            ],
+          },
+        }
+      : { $match: {} };
+
+    const transactions = await User.aggregate([
+      matchStage,
+      {
+        $lookup: {
+          from: "plans",
+          localField: "subscription.plan",
+          foreignField: "_id",
+          as: "planDetails",
+        },
+      },
+      {
+        $project: {
+          fullName: 1,
+          email: 1,
+          planName: { $first: "$planDetails.name" },
+          planPrice: { $first: "$planDetails.price" },
+          transactionDate: "$subscription.startDate",
+          status: "$subscription.status",
+        },
+      },
+      { $skip: skip },
+      { $limit: Number(limit) },
+      { $sort: { transactionDate: -1 } },
+    ]);
+
+    // Get total count for pagination
+    const totalCount = await User.countDocuments(matchStage.$match);
+
+    res.json({
+      transactions,
+      pagination: {
+        total: totalCount,
+        pages: Math.ceil(totalCount / Number(limit)),
+        currentPage: Number(page),
+        perPage: Number(limit),
+      },
+    });
+  } catch (error) {
+    console.error("Users transactions error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const downloadUsersTransactionsCSV = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  try {
+    const { search } = req.query;
+
+    // Build match stage based on search parameter
+    const matchStage = search
+      ? {
+          $match: {
+            fullName: { $regex: search as string, $options: "i" },
+          },
+        }
+      : { $match: {} };
+
+    const transactions = await User.aggregate([
+      matchStage,
+      {
+        $lookup: {
+          from: "plans",
+          localField: "subscription.plan",
+          foreignField: "_id",
+          as: "planDetails",
+        },
+      },
+      {
+        $project: {
+          fullName: 1,
+          email: 1,
+          planName: { $first: "$planDetails.name" },
+          planPrice: { $first: "$planDetails.price" },
+          transactionDate: "$subscription.startDate",
+          status: "$subscription.status",
+        },
+      },
+      { $sort: { transactionDate: -1 } },
+    ]);
+
+    // Convert transactions to CSV format
+    const csvHeader =
+      "Full Name,Email,Plan Name,Plan Price,Transaction Date,Status\n";
+    const csvRows = transactions
+      .map(
+        (t) =>
+          `${t.fullName},${t.email},${t.planName},${t.planPrice},${new Date(
+            t.transactionDate
+          ).toISOString()},${t.status}`
+      )
+      .join("\n");
+    const csvContent = csvHeader + csvRows;
+
+    // Set response headers for CSV download
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=transactions.csv"
+    );
+
+    res.send(csvContent);
+  } catch (error) {
+    console.error("CSV download error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
 };

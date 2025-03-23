@@ -9,6 +9,9 @@ import {
   getOverview,
   refresh,
   logout,
+  getSubscriptionsOverview,
+  getUsersTransactions,
+  downloadUsersTransactionsCSV,
 } from "../controllers/adminController";
 import {
   createPublicAIAvatar,
@@ -46,4 +49,8 @@ router.put(
   updateAvatar
 );
 router.delete("/avatars/:id", auth, deleteAvatar);
+router.get("/subscriptions-overview", auth, getSubscriptionsOverview);
+router.get("/users-transactions", auth, getUsersTransactions);
+router.get("/transactions/download", auth, downloadUsersTransactionsCSV);
+
 export default router;
