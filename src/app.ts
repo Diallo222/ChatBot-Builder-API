@@ -46,14 +46,17 @@ const app = express();
 app.use(helmet());
 
 // CORS configuration
+
+// process.env.NODE_ENV === "production"
+//         ? ([process.env.CLIENT_URL, process.env.APP_URL].filter(
+//             Boolean
+//           ) as string[])
+//         :
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? ([process.env.CLIENT_URL, process.env.APP_URL].filter(
-            Boolean
-          ) as string[])
-        : "*",
+    origin: [process.env.CLIENT_URL, process.env.APP_URL].filter(
+      Boolean
+    ) as string[],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "x-csrf-token", "Authorization"],
@@ -73,6 +76,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use("/api/conversations", conversationRoutes);
+
 // CSRF protection
 app.use(
   csrf({
@@ -97,7 +101,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/avatars", avatarRoutes);
-
 app.use("/api/chat-sessions", chatSessionRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/training", trainingRoutes);

@@ -15,18 +15,20 @@
     "noImplicitAny": false,
     "types": [
       "node",
-      "jest",
       "express",
+      "jest",
       "multer"
     ]
   },
   "include": [
     "src/**/*",
-    "src/types/*.d.ts",
-    "src/__tests__"
+    "src/types/*.d.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "src/__tests__"
   ]
 } 
