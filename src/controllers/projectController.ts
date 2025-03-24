@@ -365,14 +365,18 @@ export const updateSelectedPages = async (
 const generateEmbedCode = (project: IProject): string => {
   const configData = JSON.stringify({
     projectId: project._id,
-    appearance: {
-      primaryColor: project.appearance.mainColor,
-      launcherIcon: project.appearance.launcherIcon,
-      customIconUrl: project.appearance.customIconUrl,
-    },
-    configuration: {
-      welcomeMessage: project.configuration.welcomeMessage,
-      sampleQuestions: project.configuration.sampleQuestions,
+    baseUrl: process.env.APP_URL,
+    config: {
+      appearance: {
+        primaryColor: project.appearance.mainColor,
+        launcherIcon: project.appearance.launcherIcon,
+        customIconUrl: project.appearance.customIconUrl,
+        avatarUrl: project.avatar.imageUrl,
+      },
+      configuration: {
+        welcomeMessage: project.configuration.welcomeMessage,
+        sampleQuestions: project.configuration.sampleQuestions,
+      },
     },
   });
 
@@ -380,18 +384,11 @@ const generateEmbedCode = (project: IProject): string => {
 <!-- Chatbot Widget -->
 <script>
   (function() {
+    window.CHATBOT_CONFIG = ${configData};
     const script = document.createElement('script');
-    script.src = "${process.env.APP_URL}/chatbot-widget.js";
+    script.src = "${process.env.APP_URL}/js/chatbot-widget.js";
     script.async = true;
-    script.onload = function() {
-      window.initChatbot({
-        projectId: "${project._id}",
-        position: "bottom-right",
-        primaryColor: "${project.appearance.mainColor}",
-        secondaryColor: "${project.appearance.mainColor}",
-        config: ${configData}
-      });
-    };
+    script.crossOrigin = "anonymous";
     document.head.appendChild(script);
   })();
 </script>

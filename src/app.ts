@@ -21,6 +21,8 @@ import rateLimit from "express-rate-limit";
 import { createDefaultFreePlan } from "./controllers/planController";
 import tutorialRoutes from "./routes/tutorialRoutes";
 import blogRoutes from "./routes/blogRoutes";
+import path from "path";
+
 // Load environment variables
 dotenv.config();
 
@@ -46,7 +48,12 @@ app.use(helmet());
 // CORS configuration
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin:
+      process.env.NODE_ENV === "production"
+        ? ([process.env.CLIENT_URL, process.env.APP_URL].filter(
+            Boolean
+          ) as string[])
+        : "*",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "x-csrf-token", "Authorization"],
@@ -65,6 +72,7 @@ app.use(limiter);
 app.use(express.json());
 app.use(cookieParser());
 
+app.use("/api/conversations", conversationRoutes);
 // CSRF protection
 app.use(
   csrf({
@@ -76,13 +84,20 @@ app.use(
   })
 );
 
+// Serve static files from both src and dist
+if (process.env.NODE_ENV === "production") {
+  app.use("/js", express.static(path.join(__dirname, "../dist/public/js")));
+} else {
+  app.use("/js", express.static(path.join(__dirname, "public/js")));
+}
+
 // Routes
 app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/avatars", avatarRoutes);
-app.use("/api/conversations", conversationRoutes);
+
 app.use("/api/chat-sessions", chatSessionRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/training", trainingRoutes);

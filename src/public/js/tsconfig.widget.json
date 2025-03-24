@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es2018",
+    "module": "es6",
+    "moduleResolution": "node",
+    "lib": ["es2018", "dom"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "../../../dist/public/js",
+    "declaration": false,
+    "isolatedModules": true
+  },
+  "include": ["chatbot-widget.ts"],
+  "exclude": ["node_modules"]
+}  

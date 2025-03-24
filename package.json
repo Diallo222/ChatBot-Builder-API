@@ -4,13 +4,14 @@
   "description": "A platform for building AI chatbots",
   "main": "dist/app.js",
   "scripts": {
-    "start": "nodemon src/server.ts",
+    "start": "node dist/app.js",
     "dev": "nodemon src/server.ts",
-    "build": "tsc",
+    "build": "tsc && npm run build:widget && npm run copy:widget",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "build:widget": "webpack --config webpack.config.js"
+    "build:widget": "tsc -p src/public/js/tsconfig.widget.json",
+    "copy:widget": "cp dist/public/js/chatbot-widget.js src/public/js/"
   },
   "keywords": [],
   "author": "",
