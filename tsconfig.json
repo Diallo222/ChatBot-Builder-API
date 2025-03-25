@@ -16,8 +16,7 @@
     "types": [
       "node",
       "express",
-      "jest",
-      "multer"
+      
     ]
   },
   "include": [
