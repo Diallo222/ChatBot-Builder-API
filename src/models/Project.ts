@@ -11,10 +11,16 @@ export interface ICustomFaq {
   answer: string;
 }
 
+export interface IProcessedFile {
+  content: string;
+  cloudinaryUrl: string;
+  openAiFileId?: string;
+}
+
 export interface IKnowledgefiles {
   name: string;
   description: string;
-  files: string[];
+  files: IProcessedFile[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -138,8 +144,15 @@ const ProjectSchema: Schema = new Schema(
           type: String,
         },
         files: {
-          type: [String],
+          type: [
+            {
+              content: String,
+              cloudinaryUrl: String,
+            },
+          ],
         },
+        createdAt: { type: Date, default: Date.now },
+        updatedAt: { type: Date, default: Date.now },
       },
     ],
     appearance: {

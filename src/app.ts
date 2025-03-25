@@ -14,6 +14,7 @@ import chatSessionRoutes from "./routes/chatSessionRoutes";
 import ticketRoutes from "./routes/ticketRoutes";
 import trainingRoutes from "./routes/trainingRoutes";
 import forgotRoutes from "./routes/forgotRoutes";
+import publicBlogRoutes from "./routes/publicBlogRoutes";
 import cookieParser from "cookie-parser";
 import csrf from "csurf";
 import helmet from "helmet";
@@ -47,16 +48,38 @@ app.use(helmet());
 
 // CORS configuration
 
-// process.env.NODE_ENV === "production"
-//         ? ([process.env.CLIENT_URL, process.env.APP_URL].filter(
-//             Boolean
-//           ) as string[])
-//         :
+// app.use(
+//   cors({
+//     origin: [process.env.CLIENT_URL, process.env.APP_URL].filter(
+//       Boolean
+//     ) as string[],
+//     credentials: true,
+//     methods: ["GET", "POST", "PUT", "DELETE"],
+//     allowedHeaders: ["Content-Type", "x-csrf-token", "Authorization"],
+//     exposedHeaders: ["x-csrf-token"],
+//   })
+// );
+
+// Replace the existing CORS configuration with this:
 app.use(
   cors({
-    origin: [process.env.CLIENT_URL, process.env.APP_URL].filter(
-      Boolean
-    ) as string[],
+    origin: (origin, callback) => {
+      // Allow all origins in production (since embed code could be used anywhere)
+      // For development, you might want to keep the existing origin checks
+      if (process.env.NODE_ENV === "production") {
+        callback(null, true);
+      } else {
+        const allowedOrigins = [
+          process.env.CLIENT_URL,
+          process.env.APP_URL,
+        ].filter(Boolean) as string[];
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, origin);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "x-csrf-token", "Authorization"],
@@ -76,6 +99,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use("/api/conversations", conversationRoutes);
+app.use("/api/public-blogs", publicBlogRoutes);
 
 // CSRF protection
 app.use(
@@ -89,11 +113,11 @@ app.use(
 );
 
 // Serve static files from both src and dist
-if (process.env.NODE_ENV === "production") {
-  app.use("/js", express.static(path.join(__dirname, "../dist/public/js")));
-} else {
-  app.use("/js", express.static(path.join(__dirname, "public/js")));
-}
+// if (process.env.NODE_ENV === "production") {
+//   app.use("/js", express.static(path.join(__dirname, "../dist/public/js")));
+// } else {
+app.use("/js", express.static(path.join(__dirname, "public/js")));
+// }
 
 // Routes
 app.use("/api/admin", adminRoutes);
