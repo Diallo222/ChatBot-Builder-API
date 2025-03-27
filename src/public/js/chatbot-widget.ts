@@ -1,12 +1,10 @@
-// Add an empty export to make this file a module
-export {};
+// This file is meant to be used directly in the browser
+// No exports needed
 
-// Declare global window interface
-declare global {
-  interface Window {
-    CHATBOT_CONFIG?: ChatbotConfig;
-    initChatbot: (config: ChatbotConfig) => void;
-  }
+// Instead of declaring global, use a simpler interface augmentation
+interface Window {
+  CHATBOT_CONFIG?: ChatbotConfig;
+  initChatbot: (config: ChatbotConfig) => void;
 }
 
 interface ChatbotConfig {

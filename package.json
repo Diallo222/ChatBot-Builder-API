@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "nodemon src/server.ts",
-    "build": "tsc",
+    "build": "tsc && pnpm run build:widget && pnpm run copy:widget",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

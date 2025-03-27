@@ -113,11 +113,11 @@ app.use(
 );
 
 // Serve static files from both src and dist
-// if (process.env.NODE_ENV === "production") {
-//   app.use("/js", express.static(path.join(__dirname, "../dist/public/js")));
-// } else {
-app.use("/js", express.static(path.join(__dirname, "public/js")));
-// }
+if (process.env.NODE_ENV === "production") {
+  app.use("/js", express.static(path.join(__dirname, "../dist/public/js")));
+} else {
+  app.use("/js", express.static(path.join(__dirname, "public/js")));
+}
 
 // Routes
 app.use("/api/admin", adminRoutes);
