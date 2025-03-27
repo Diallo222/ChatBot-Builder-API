@@ -1,23 +1,24 @@
+"use strict";
 class ChatbotWidget {
-  constructor(config) {
-    this.config = config;
-    this.conversationId = null;
-    this.messageHistory = [];
-    this.pollingInterval = null;
-    this.isLoading = false;
-    if (!config.baseUrl) {
-      throw new Error("baseUrl is required in ChatbotConfig");
+    constructor(config) {
+        this.config = config;
+        this.conversationId = null;
+        this.messageHistory = [];
+        this.pollingInterval = null;
+        this.isLoading = false;
+        if (!config.baseUrl) {
+            throw new Error("baseUrl is required in ChatbotConfig");
+        }
+        this.baseUrl = config.baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
+        this.styleSheet = this.createStyleSheet();
+        document.head.appendChild(this.styleSheet);
+        this.initializeWidget();
+        this.startNewConversation();
     }
-    this.baseUrl = config.baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.styleSheet = this.createStyleSheet();
-    document.head.appendChild(this.styleSheet);
-    this.initializeWidget();
-  }
-  createStyleSheet() {
-    const style = document.createElement("style");
-    const primaryColor =
-      this.config.config.appearance.primaryColor || "#3498db";
-    style.textContent = `
+    createStyleSheet() {
+        const style = document.createElement("style");
+        const primaryColor = this.config.config.appearance.primaryColor || "#3498db";
+        style.textContent = `
     @keyframes fadeIn {
       from { opacity: 0; transform: scale(0.95); }
       to { opacity: 1; transform: scale(1); }
@@ -146,27 +147,23 @@ class ChatbotWidget {
       }
     }
   `;
-    return style;
-  }
-  initializeWidget() {
-    // Create widget container
-    this.container = document.createElement("div");
-    this.container.id = "chatbot-widget-container";
-    this.container.style.position = "fixed";
-    this.container.style.bottom = "20px";
-    this.container.style.zIndex = "999999";
-    this.container.style[
-      this.config.position === "bottom-left" ? "left" : "right"
-    ] = "20px";
-    const primaryColor =
-      this.config.config.appearance.primaryColor || "#3498db";
-    const welcomeMessage = this.config.config.configuration.welcomeMessage;
-    const sampleQuestions = this.config.config.configuration.sampleQuestions;
-    const avatarUrl =
-      this.config.config.appearance.avatarUrl ||
-      "https://res.cloudinary.com/doaxoti6i/image/upload/v1740362205/Screenshot_2025-02-24_095544_pl9gji.png";
-    // Add widget HTML
-    this.container.innerHTML = `
+        return style;
+    }
+    initializeWidget() {
+        // Create widget container
+        this.container = document.createElement("div");
+        this.container.id = "chatbot-widget-container";
+        this.container.style.position = "fixed";
+        this.container.style.bottom = "20px";
+        this.container.style.zIndex = "999999";
+        this.container.style[this.config.position === "bottom-left" ? "left" : "right"] = "20px";
+        const primaryColor = this.config.config.appearance.primaryColor || "#3498db";
+        const welcomeMessage = this.config.config.configuration.welcomeMessage;
+        const sampleQuestions = this.config.config.configuration.sampleQuestions;
+        const avatarUrl = this.config.config.appearance.avatarUrl ||
+            "https://res.cloudinary.com/doaxoti6i/image/upload/v1740362205/Screenshot_2025-02-24_095544_pl9gji.png";
+        // Add widget HTML
+        this.container.innerHTML = `
     <div class="chatbot-widget" style="
       background: white;
       border-radius: 16px;
@@ -228,8 +225,7 @@ class ChatbotWidget {
         scroll-behavior: smooth;
         min-height: 200px;
       ">
-        ${
-          welcomeMessage
+        ${welcomeMessage
             ? `
           <div class="message assistant" style="
             margin: 10px 0;
@@ -241,8 +237,7 @@ class ChatbotWidget {
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
           ">${welcomeMessage}</div>
         `
-            : ""
-        }
+            : ""}
       </div>
       
       <!-- Input Area -->
@@ -253,12 +248,7 @@ class ChatbotWidget {
         flex-shrink: 0;
         box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
       ">
-        ${
-          (
-            sampleQuestions === null || sampleQuestions === void 0
-              ? void 0
-              : sampleQuestions.length
-          )
+        ${(sampleQuestions === null || sampleQuestions === void 0 ? void 0 : sampleQuestions.length)
             ? `
 <div class="sample-questions-container" style="
   margin-bottom: 12px;
@@ -274,8 +264,7 @@ class ChatbotWidget {
     padding: 0 4px;
   ">
     ${sampleQuestions
-      .map(
-        (q) => `
+                .map((q) => `
       <button class="sample-question" style="
         background: #f5f5f5;
         border: 1px solid #e0e0e0;
@@ -289,14 +278,12 @@ class ChatbotWidget {
         color: #333;
         font-weight: 500;
       ">${q}</button>
-    `
-      )
-      .join("")}
+    `)
+                .join("")}
   </div>
 </div>
 `
-            : ""
-        }
+            : ""}
         <form class="message-form" style="
           display: flex;
           gap: 8px;
@@ -357,172 +344,154 @@ class ChatbotWidget {
       ${this.getLauncherIcon()}
     </button>
   `;
-    // Add event listeners
-    this.addEventListeners();
-    // Add to page
-    document.body.appendChild(this.container);
-  }
-  addEventListeners() {
-    const widget = this.container.querySelector(".chatbot-widget");
-    const toggleBtn = this.container.querySelector(".chatbot-toggle");
-    const closeBtn = this.container.querySelector(".close-btn");
-    const form = this.container.querySelector(".message-form");
-    const input = this.container.querySelector("input");
-    const sendBtnContainer = this.container.querySelector(
-      ".send-btn-container"
-    );
-    // Toggle chat widget
-    toggleBtn.addEventListener("click", () => {
-      if (widget.style.display === "none") {
-        widget.style.display = "flex";
-        toggleBtn.style.display = "none";
-        if (!this.conversationId) {
-          this.startNewConversation();
+        // Add event listeners
+        this.addEventListeners();
+        // Add to page
+        document.body.appendChild(this.container);
+    }
+    addEventListeners() {
+        const widget = this.container.querySelector(".chatbot-widget");
+        const toggleBtn = this.container.querySelector(".chatbot-toggle");
+        const closeBtn = this.container.querySelector(".close-btn");
+        const form = this.container.querySelector(".message-form");
+        const input = this.container.querySelector("input");
+        const sendBtnContainer = this.container.querySelector(".send-btn-container");
+        // Toggle chat widget
+        toggleBtn.addEventListener("click", () => {
+            if (widget.style.display === "none") {
+                widget.style.display = "flex";
+                toggleBtn.style.display = "none";
+                if (!this.conversationId) {
+                    this.startNewConversation();
+                }
+            }
+            else {
+                this.closeWidget();
+            }
+        });
+        // Close chat widget
+        closeBtn.addEventListener("click", () => {
+            this.closeWidget();
+        });
+        // Handle form submission
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            this.sendMessage();
+        });
+        // Show/hide send button based on input
+        input.addEventListener("input", () => {
+            if (input.value.trim()) {
+                sendBtnContainer.classList.remove("hidden");
+                sendBtnContainer.classList.add("visible");
+            }
+            else {
+                sendBtnContainer.classList.remove("visible");
+                sendBtnContainer.classList.add("hidden");
+            }
+        });
+        // Handle sample question clicks
+        const sampleQuestions = this.container.querySelectorAll(".sample-question");
+        sampleQuestions.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const questionText = btn.textContent || "";
+                input.value = questionText;
+                input.focus();
+                sendBtnContainer.classList.remove("hidden");
+                sendBtnContainer.classList.add("visible");
+                // Optional: Uncomment the next line if you want to automatically send the question
+                // this.sendMessage();
+            });
+        });
+    }
+    closeWidget() {
+        const widget = this.container.querySelector(".chatbot-widget");
+        const toggleBtn = this.container.querySelector(".chatbot-toggle");
+        widget.classList.add("closing");
+        widget.style.display = "none";
+        setTimeout(() => {
+            widget.style.display = "none";
+            widget.classList.remove("closing");
+            toggleBtn.style.display = "flex";
+        }, 300); // Match the animation duration
+    }
+    async startNewConversation() {
+        try {
+            if (!this.baseUrl) {
+                throw new Error("baseUrl is not configured");
+            }
+            this.setLoading(true);
+            const response = await fetch(`${this.baseUrl}/api/conversations/project/${this.config.projectId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    metadata: {
+                        userAgent: navigator.userAgent,
+                        referrer: document.referrer,
+                        url: window.location.href,
+                    },
+                }),
+            });
+            const data = await response.json();
+            this.conversationId = data._id;
+            this.setLoading(false);
         }
-      } else {
-        this.closeWidget();
-      }
-    });
-    // Close chat widget
-    closeBtn.addEventListener("click", () => {
-      this.closeWidget();
-    });
-    // Handle form submission
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      this.sendMessage();
-    });
-    // Show/hide send button based on input
-    input.addEventListener("input", () => {
-      if (input.value.trim()) {
-        sendBtnContainer.classList.remove("hidden");
-        sendBtnContainer.classList.add("visible");
-      } else {
+        catch (error) {
+            console.error("Error starting conversation:", error);
+            this.setLoading(false);
+            this.addMessage("assistant", "Sorry, I couldn't start a conversation. Please try again later.", `error_${Date.now()}`);
+        }
+    }
+    async sendMessage() {
+        const input = this.container.querySelector("input");
+        const message = input.value.trim();
+        const sendBtnContainer = this.container.querySelector(".send-btn-container");
+        if (!message)
+            return;
+        input.value = "";
         sendBtnContainer.classList.remove("visible");
         sendBtnContainer.classList.add("hidden");
-      }
-    });
-    // Handle sample question clicks
-    const sampleQuestions = this.container.querySelectorAll(".sample-question");
-    sampleQuestions.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const questionText = btn.textContent || "";
-        input.value = questionText;
-        input.focus();
-        sendBtnContainer.classList.remove("hidden");
-        sendBtnContainer.classList.add("visible");
-        // Optional: Uncomment the next line if you want to automatically send the question
-        // this.sendMessage();
-      });
-    });
-  }
-  closeWidget() {
-    const widget = this.container.querySelector(".chatbot-widget");
-    const toggleBtn = this.container.querySelector(".chatbot-toggle");
-    widget.classList.add("closing");
-    widget.style.display = "none";
-    setTimeout(() => {
-      widget.style.display = "none";
-      widget.classList.remove("closing");
-      toggleBtn.style.display = "flex";
-    }, 300); // Match the animation duration
-  }
-  async startNewConversation() {
-    try {
-      if (!this.baseUrl) {
-        throw new Error("baseUrl is not configured");
-      }
-      this.setLoading(true);
-      const response = await fetch(
-        `${this.baseUrl}/api/conversations/project/${this.config.projectId}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            metadata: {
-              userAgent: navigator.userAgent,
-              referrer: document.referrer,
-              url: window.location.href,
-            },
-          }),
+        const messageId = `msg_${Date.now()}`;
+        this.addMessage("user", message, messageId);
+        this.messageHistory.push({ role: "user", content: message, messageId });
+        this.setLoading(true);
+        try {
+            const response = await fetch(`${this.baseUrl}/api/conversations/${this.conversationId}/messages`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    message,
+                }),
+            });
+            const data = await response.json();
+            this.setLoading(false);
+            if (data.assistantResponse) {
+                const responseId = data.assistantResponse.messageId;
+                this.addMessage("assistant", data.assistantResponse.content, responseId);
+                this.messageHistory.push({
+                    role: "assistant",
+                    content: data.assistantResponse.content,
+                    messageId: responseId,
+                });
+            }
         }
-      );
-      const data = await response.json();
-      this.conversationId = data._id;
-      this.setLoading(false);
-    } catch (error) {
-      console.error("Error starting conversation:", error);
-      this.setLoading(false);
-      this.addMessage(
-        "assistant",
-        "Sorry, I couldn't start a conversation. Please try again later.",
-        `error_${Date.now()}`
-      );
-    }
-  }
-  async sendMessage() {
-    const input = this.container.querySelector("input");
-    const message = input.value.trim();
-    const sendBtnContainer = this.container.querySelector(
-      ".send-btn-container"
-    );
-    if (!message) return;
-    input.value = "";
-    sendBtnContainer.classList.remove("visible");
-    sendBtnContainer.classList.add("hidden");
-    const messageId = `msg_${Date.now()}`;
-    this.addMessage("user", message, messageId);
-    this.messageHistory.push({ role: "user", content: message, messageId });
-    this.setLoading(true);
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/api/conversations/${this.conversationId}/messages`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message,
-          }),
+        catch (error) {
+            console.error("Error sending message:", error);
+            this.setLoading(false);
+            this.addMessage("assistant", "Sorry, I encountered an error. Please try again.", `error_${Date.now()}`);
         }
-      );
-      const data = await response.json();
-      this.setLoading(false);
-      if (data.assistantResponse) {
-        const responseId = data.assistantResponse.messageId;
-        this.addMessage(
-          "assistant",
-          data.assistantResponse.content,
-          responseId
-        );
-        this.messageHistory.push({
-          role: "assistant",
-          content: data.assistantResponse.content,
-          messageId: responseId,
-        });
-      }
-    } catch (error) {
-      console.error("Error sending message:", error);
-      this.setLoading(false);
-      this.addMessage(
-        "assistant",
-        "Sorry, I encountered an error. Please try again.",
-        `error_${Date.now()}`
-      );
     }
-  }
-  setLoading(isLoading) {
-    this.isLoading = isLoading;
-    // Remove existing typing indicator if any
-    const existingIndicator = this.container.querySelector(".typing-indicator");
-    if (existingIndicator) {
-      existingIndicator.remove();
-    }
-    if (isLoading) {
-      const messagesContainer =
-        this.container.querySelector(".chatbot-messages");
-      const typingIndicator = document.createElement("div");
-      typingIndicator.className = "typing-indicator message assistant";
-      typingIndicator.style.cssText = `
+    setLoading(isLoading) {
+        this.isLoading = isLoading;
+        // Remove existing typing indicator if any
+        const existingIndicator = this.container.querySelector(".typing-indicator");
+        if (existingIndicator) {
+            existingIndicator.remove();
+        }
+        if (isLoading) {
+            const messagesContainer = this.container.querySelector(".chatbot-messages");
+            const typingIndicator = document.createElement("div");
+            typingIndicator.className = "typing-indicator message assistant";
+            typingIndicator.style.cssText = `
         margin: 10px 0;
         padding: 16px;
         border-radius: 16px;
@@ -532,103 +501,92 @@ class ChatbotWidget {
         gap: 4px;
         width: fit-content;
       `;
-      typingIndicator.innerHTML = `
+            typingIndicator.innerHTML = `
         <span style="width: 8px; height: 8px; background: #aaa; border-radius: 50%; display: inline-block;"></span>
         <span style="width: 8px; height: 8px; background: #aaa; border-radius: 50%; display: inline-block;"></span>
         <span style="width: 8px; height: 8px; background: #aaa; border-radius: 50%; display: inline-block;"></span>
       `;
-      messagesContainer.appendChild(typingIndicator);
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            messagesContainer.appendChild(typingIndicator);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
     }
-  }
-  addMessage(sender, content, messageId) {
-    const messagesContainer = this.container.querySelector(".chatbot-messages");
-    const messageElement = document.createElement("div");
-    messageElement.className = `message ${sender}`;
-    messageElement.dataset.messageId = messageId;
-    messageElement.style.cssText = `
+    addMessage(sender, content, messageId) {
+        const messagesContainer = this.container.querySelector(".chatbot-messages");
+        const messageElement = document.createElement("div");
+        messageElement.className = `message ${sender}`;
+        messageElement.dataset.messageId = messageId;
+        messageElement.style.cssText = `
       margin: 10px 0;
       padding: 12px 16px;
       border-radius: 16px;
       max-width: 80%;
       line-height: 1.4;
       word-break: break-word;
-      ${
-        sender === "user"
-          ? `margin-left: auto; 
+      ${sender === "user"
+            ? `margin-left: auto; 
              background: ${this.config.config.appearance.primaryColor}; 
              color: white;
              border-bottom-right-radius: 4px;`
-          : `background: #f5f5f5; 
+            : `background: #f5f5f5; 
              color: #1a1a1a;
-             border-bottom-left-radius: 4px;`
-      }
+             border-bottom-left-radius: 4px;`}
     `;
-    messageElement.textContent = content;
-    messagesContainer.appendChild(messageElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  }
-  getLauncherIcon() {
-    const icon = this.config.config.appearance.launcherIcon;
-    const customUrl = this.config.config.appearance.customIconUrl;
-    if (icon === "CUSTOM" && customUrl) {
-      return `<img src="${customUrl}" width="24" height="24" alt="Chat" />`;
+        messageElement.textContent = content;
+        messagesContainer.appendChild(messageElement);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
-    // Modern chat icon SVG
-    return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    getLauncherIcon() {
+        const icon = this.config.config.appearance.launcherIcon;
+        const customUrl = this.config.config.appearance.customIconUrl;
+        if (icon === "CUSTOM" && customUrl) {
+            return `<img src="${customUrl}" width="24" height="24" alt="Chat" />`;
+        }
+        // Modern chat icon SVG
+        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
     </svg>`;
-  }
+    }
 }
 // Modify the initialization at the bottom of the file
 if (typeof window !== "undefined") {
-  window.initChatbot = (config) => {
-    var _a, _b;
-    // Basic config validation
-    if (!config || typeof config !== "object") {
-      console.error("ChatbotWidget: Invalid configuration object");
-      return;
+    window.initChatbot = (config) => {
+        var _a, _b;
+        // Basic config validation
+        if (!config || typeof config !== "object") {
+            console.error("ChatbotWidget: Invalid configuration object");
+            return;
+        }
+        // Validate required fields
+        if (!config.baseUrl || typeof config.baseUrl !== "string") {
+            console.error("ChatbotWidget: baseUrl is required and must be a string");
+            return;
+        }
+        if (!config.projectId || typeof config.projectId !== "string") {
+            console.error("ChatbotWidget: projectId is required and must be a string");
+            return;
+        }
+        // Validate nested config structure
+        if (!((_a = config.config) === null || _a === void 0 ? void 0 : _a.appearance) || !((_b = config.config) === null || _b === void 0 ? void 0 : _b.configuration)) {
+            console.error("ChatbotWidget: Invalid config structure - missing required nested properties");
+            return;
+        }
+        // Check if widget already exists
+        if (!document.getElementById("chatbot-widget-container")) {
+            try {
+                new ChatbotWidget(config);
+            }
+            catch (error) {
+                console.error("ChatbotWidget: Failed to initialize -", error);
+            }
+        }
+    };
+    // Auto-initialize with validation
+    if (window.CHATBOT_CONFIG) {
+        try {
+            window.initChatbot(window.CHATBOT_CONFIG);
+        }
+        catch (error) {
+            console.error("ChatbotWidget: Auto-initialization failed -", error);
+        }
     }
-    // Validate required fields
-    if (!config.baseUrl || typeof config.baseUrl !== "string") {
-      console.error("ChatbotWidget: baseUrl is required and must be a string");
-      return;
-    }
-    if (!config.projectId || typeof config.projectId !== "string") {
-      console.error(
-        "ChatbotWidget: projectId is required and must be a string"
-      );
-      return;
-    }
-    // Validate nested config structure
-    if (
-      !((_a = config.config) === null || _a === void 0
-        ? void 0
-        : _a.appearance) ||
-      !((_b = config.config) === null || _b === void 0
-        ? void 0
-        : _b.configuration)
-    ) {
-      console.error(
-        "ChatbotWidget: Invalid config structure - missing required nested properties"
-      );
-      return;
-    }
-    // Check if widget already exists
-    if (!document.getElementById("chatbot-widget-container")) {
-      try {
-        new ChatbotWidget(config);
-      } catch (error) {
-        console.error("ChatbotWidget: Failed to initialize -", error);
-      }
-    }
-  };
-  // Auto-initialize with validation
-  if (window.CHATBOT_CONFIG) {
-    try {
-      window.initChatbot(window.CHATBOT_CONFIG);
-    } catch (error) {
-      console.error("ChatbotWidget: Auto-initialization failed -", error);
-    }
-  }
 }

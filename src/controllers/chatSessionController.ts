@@ -152,7 +152,6 @@ export const createChatSession = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  console.log("Creating chat session");
   try {
     const { projectId } = req.params;
 

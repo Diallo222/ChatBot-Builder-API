@@ -1,4 +1,4 @@
-import express from "express";
+import express, { RequestHandler } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db";
@@ -69,15 +69,16 @@ app.use(
       if (process.env.NODE_ENV === "production") {
         callback(null, true);
       } else {
-        const allowedOrigins = [
-          process.env.CLIENT_URL,
-          process.env.APP_URL,
-        ].filter(Boolean) as string[];
-        if (!origin || allowedOrigins.includes(origin)) {
-          callback(null, origin);
-        } else {
-          callback(new Error("Not allowed by CORS"));
-        }
+        callback(null, true);
+        // const allowedOrigins = [
+        //   process.env.CLIENT_URL,
+        //   process.env.APP_URL,
+        // ].filter(Boolean) as string[];
+        // if (!origin || allowedOrigins.includes(origin)) {
+        //   callback(null, origin);
+        // } else {
+        //   callback(new Error("Not allowed by CORS"));
+        // }
       }
     },
     credentials: true,
@@ -101,16 +102,16 @@ app.use(cookieParser());
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/public-blogs", publicBlogRoutes);
 
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  },
+}) as unknown as RequestHandler; // <-- Type assertion here
+
 // CSRF protection
-app.use(
-  csrf({
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    },
-  })
-);
+app.use(csrfProtection);
 
 // Serve static files from both src and dist
 if (process.env.NODE_ENV === "production") {

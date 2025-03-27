@@ -1,7 +1,3 @@
-// This file is meant to be used directly in the browser
-// No exports needed
-
-// Instead of declaring global, use a simpler interface augmentation
 interface Window {
   CHATBOT_CONFIG?: ChatbotConfig;
   initChatbot: (config: ChatbotConfig) => void;
@@ -50,6 +46,7 @@ class ChatbotWidget {
     this.styleSheet = this.createStyleSheet();
     document.head.appendChild(this.styleSheet);
     this.initializeWidget();
+    this.startNewConversation();
   }
 
   private createStyleSheet(): HTMLStyleElement {
@@ -676,7 +673,7 @@ class ChatbotWidget {
 
 // Modify the initialization at the bottom of the file
 if (typeof window !== "undefined") {
-  window.initChatbot = (config: ChatbotConfig): void => {
+  (window as any).initChatbot = (config: ChatbotConfig): void => {
     // Basic config validation
     if (!config || typeof config !== "object") {
       console.error("ChatbotWidget: Invalid configuration object");
@@ -715,9 +712,9 @@ if (typeof window !== "undefined") {
   };
 
   // Auto-initialize with validation
-  if (window.CHATBOT_CONFIG) {
+  if ((window as any).CHATBOT_CONFIG) {
     try {
-      window.initChatbot(window.CHATBOT_CONFIG);
+      (window as any).initChatbot((window as any).CHATBOT_CONFIG);
     } catch (error) {
       console.error("ChatbotWidget: Auto-initialization failed -", error);
     }
