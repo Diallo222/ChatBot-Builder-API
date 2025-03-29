@@ -1,10 +1,7 @@
 import { Request, Response } from "express";
 import Project from "../models/Project";
 import openai from "../config/openai";
-import { parseFile } from "../utils/fileParser"; // You'll need to implement this
-import { ICustomFaq, IProcessedFile, IKnowledgefiles } from "../models/Project";
-import * as fs from "fs";
-import { uploadAttachmentsToOpenAI } from "../services/attachementService";
+import { ICustomFaq } from "../models/Project";
 
 interface TrainingRequestBody {
   knowledgefiles?: Express.Multer.File[];
@@ -15,7 +12,6 @@ export const trainProjectAI = async (
   req: Request<{ projectId: string }, {}, TrainingRequestBody>,
   res: Response
 ): Promise<void> => {
-  // let uploadedFileIds: string[] = [];
   let project: any;
   try {
     const { projectId } = req.params;
@@ -65,20 +61,15 @@ export const trainProjectAI = async (
     await project.save();
 
     // 6. Process files content
-    let processedFiles: IKnowledgefiles | undefined;
     if (files.length > 0) {
-      console.log("files MAPPING", files);
-      processedFiles = {
-        name: "Training Batch",
-        description: "Knowledge files for AI training",
-        files: files.map((file, index) => ({
-          content: file.path,
-          cloudinaryUrl: files[index].path,
-          // openAiFileId: uploadedFileIds[index],
-        })),
+      const processedFiles = files.map((file) => ({
+        content: file.originalname,
+        cloudinaryUrl: file.path,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      }));
+
+      project.knowledgefiles.push(...processedFiles);
     }
 
     // 7. Process FAQs
@@ -88,11 +79,6 @@ export const trainProjectAI = async (
           Boolean(faq.question?.trim() && faq.answer?.trim())
         )
         .map(({ question, answer }) => ({ question, answer })) || [];
-
-    // 8. Get all existing file IDs from knowledge files
-    const existingFileIds = project.knowledgefiles.flatMap((kf) =>
-      kf.files.map((f) => f.openAiFileId).filter(Boolean)
-    ) as string[];
 
     const trainingContent = [
       ...project.knowledgefiles.flatMap((kf) => kf.files),
@@ -111,22 +97,16 @@ export const trainProjectAI = async (
       // Update existing assistant
       assistant = await openai.beta.assistants.update(project.assistantId, {
         instructions: `You are a helpful AI assistant for the website ${project.websiteUrl}. Use the following content to answer questions:\n\n${scrapedInstructions}, and the following knowledge:\n\n${trainingContent}`,
-        model: "gpt-4-turbo-preview",
-        // fileIds: allFileIds, // temporary type assertion
+        model: "gpt-4o-mini",
       });
     } else {
       // Create new assistant
       assistant = await openai.beta.assistants.create({
         name: `${project.name} Assistant`,
         instructions: `You are a helpful AI assistant for the website ${project.websiteUrl}. Use the following content to answer questions:\n\n${scrapedInstructions}, and the following knowledge:\n\n${trainingContent}`,
-        model: "gpt-4-turbo-preview",
-        // fileIds: allFileIds, // temporary type assertion
+        model: "gpt-4o-mini",
       });
       project.assistantId = assistant.id;
-    }
-
-    if (processedFiles) {
-      project.knowledgefiles.push(processedFiles);
     }
 
     if (validFaqs.length > 0) {
@@ -146,7 +126,6 @@ export const trainProjectAI = async (
     console.log("project", error);
     res.status(500).json({
       message: "Training failed",
-      error: project.training.error,
     });
     return;
   }
@@ -178,6 +157,158 @@ export const getTrainingStatus = async (
     console.error("Get training status error:", error);
     res.status(500).json({
       message: "Error fetching training status",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+export const updateKnowledgeFile = async (
+  req: Request<
+    { projectId: string; knowledgeFileId: string },
+    {},
+    { name?: string; description?: string }
+  >,
+  res: Response
+): Promise<void> => {
+  try {
+    const { projectId, knowledgeFileId } = req.params;
+    const { name, description } = req.body;
+
+    const project = await Project.findOneAndUpdate(
+      {
+        _id: projectId,
+        owner: req.user!.id,
+        "knowledgefiles._id": knowledgeFileId,
+      },
+      {
+        $set: {
+          "knowledgefiles.$.name": name,
+          "knowledgefiles.$.description": description,
+          "knowledgefiles.$.updatedAt": new Date(),
+        },
+      },
+      { new: true }
+    );
+
+    if (!project) {
+      res.status(404).json({ message: "Project or knowledge file not found" });
+      return;
+    }
+
+    const updatedKnowledgeFile = project.knowledgefiles.find(
+      (kf) => kf._id?.toString() === knowledgeFileId
+    );
+    res.json(updatedKnowledgeFile);
+  } catch (error) {
+    console.error("Update knowledge file error:", error);
+    res.status(500).json({
+      message: "Error updating knowledge file",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+export const deleteKnowledgeFile = async (
+  req: Request<{ projectId: string; knowledgeFileId: string }>,
+  res: Response
+): Promise<void> => {
+  try {
+    const { projectId, knowledgeFileId } = req.params;
+
+    const project = await Project.findByIdAndUpdate(
+      projectId,
+      { $pull: { knowledgefiles: { _id: knowledgeFileId } } },
+      { new: true }
+    );
+
+    if (!project) {
+      res.status(404).json({ message: "Project or knowledge file not found" });
+      return;
+    }
+
+    res.json({ message: "Knowledge file deleted successfully" });
+  } catch (error) {
+    console.error("Delete knowledge file error:", error);
+    res.status(500).json({
+      message: "Error deleting knowledge file",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+export const updateCustomFaq = async (
+  req: Request<{ projectId: string; faqId: string }, {}, ICustomFaq>,
+  res: Response
+): Promise<void> => {
+  try {
+    const { projectId, faqId } = req.params;
+    const { question, answer } = req.body;
+
+    if (!question?.trim() || !answer?.trim()) {
+      res.status(400).json({ message: "Question and answer are required" });
+      return;
+    }
+
+    const project = await Project.findOneAndUpdate(
+      {
+        _id: projectId,
+        owner: req.user!.id,
+        "customFaqs._id": faqId,
+      },
+      {
+        $set: {
+          "customFaqs.$.question": question,
+          "customFaqs.$.answer": answer,
+        },
+      },
+      { new: true }
+    );
+
+    if (!project) {
+      res.status(404).json({ message: "Project or FAQ not found" });
+      return;
+    }
+
+    const updatedFaq = project.customFaqs.find(
+      (faq) => faq._id?.toString() === faqId
+    );
+    res.json(updatedFaq);
+  } catch (error) {
+    console.error("Update FAQ error:", error);
+    res.status(500).json({
+      message: "Error updating FAQ",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+export const deleteCustomFaq = async (
+  req: Request<{ projectId: string; faqId: string }>,
+  res: Response
+): Promise<void> => {
+  try {
+    const { projectId, faqId } = req.params;
+
+    const project = await Project.findOneAndUpdate(
+      {
+        _id: projectId,
+        owner: req.user!.id,
+        "customFaqs._id": faqId,
+      },
+      { $pull: { customFaqs: { _id: faqId } } },
+      { new: true }
+    );
+
+    if (!project) {
+      res.status(404).json({ message: "Project or FAQ not found" });
+      return;
+    }
+
+    res.json({ message: "FAQ deleted successfully" });
+  } catch (error) {
+    console.error("Delete FAQ error:", error);
+    res.status(500).json({
+      message: "Error deleting FAQ",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }

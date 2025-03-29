@@ -7,22 +7,17 @@ export interface IScrapedPage {
 }
 
 export interface ICustomFaq {
+  _id?: mongoose.Types.ObjectId;
   question: string;
   answer: string;
 }
 
 export interface IProcessedFile {
+  _id?: mongoose.Types.ObjectId;
   content: string;
   cloudinaryUrl: string;
-  openAiFileId?: string;
-}
-
-export interface IKnowledgefiles {
-  name: string;
-  description: string;
-  files: IProcessedFile[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export enum LauncherIcon {
@@ -60,7 +55,7 @@ export interface IProject extends Document {
     avatarId?: mongoose.Types.ObjectId; // Reference to the Avatar collection
   };
   customFaqs: ICustomFaq[];
-  knowledgefiles: IKnowledgefiles[];
+  knowledgefiles: IProcessedFile[];
   appearance: IAppearance;
   embedCode?: string;
   training: {
@@ -137,20 +132,8 @@ const ProjectSchema: Schema = new Schema(
     ],
     knowledgefiles: [
       {
-        name: {
-          type: String,
-        },
-        description: {
-          type: String,
-        },
-        files: {
-          type: [
-            {
-              content: String,
-              cloudinaryUrl: String,
-            },
-          ],
-        },
+        content: { type: String },
+        cloudinaryUrl: { type: String, required: true },
         createdAt: { type: Date, default: Date.now },
         updatedAt: { type: Date, default: Date.now },
       },

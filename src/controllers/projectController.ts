@@ -125,7 +125,7 @@ export const createProject = async (
       const assistant = await openai.beta.assistants.create({
         name: `${name} Assistant`,
         instructions: `You are a helpful AI assistant for the website ${websiteUrl}. Use the following content to answer questions:\n\n${instructions}`,
-        model: "gpt-4-turbo-preview",
+        model: "gpt-4o-mini",
       });
       console.log("assistant", assistant);
       assistantId = assistant.id;
