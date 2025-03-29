@@ -206,7 +206,7 @@ class ChatbotWidget {
       this.config.config.appearance.avatarUrl ||
       "https://res.cloudinary.com/doaxoti6i/image/upload/v1740362205/Screenshot_2025-02-24_095544_pl9gji.png";
 
-    // Add widget HTML
+    // Add widget HTML with display: none initially
     this.container.innerHTML = `
     <div class="chatbot-widget" style="
       background: white;
@@ -216,7 +216,6 @@ class ChatbotWidget {
       width: 380px;
       height: 550px;
       overflow: hidden;
-      display: flex;
       flex-direction: column;
     ">
       <!-- Avatar Header -->
