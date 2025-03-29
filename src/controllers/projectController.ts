@@ -24,9 +24,6 @@ export const createProject = async (
   },
   res: Response
 ): Promise<void> => {
-  console.log("createProject CALLED");
-  console.log("AVATAR", req.body.avatar);
-
   try {
     const { name, description, websiteUrl, scrapedPages } = req.body;
     const userId = req.user!.id;
@@ -37,8 +34,6 @@ export const createProject = async (
     }>("subscription.plan");
 
     if (!user) {
-      console.log("user not found");
-
       res.status(404).json({ message: "User not found" });
       return;
     }
@@ -69,7 +64,6 @@ export const createProject = async (
     if (avatar?.type === "predefined" && avatar?.avatarId) {
       // Verify predefined avatar exists
       const predefinedAvatar = await Avatar.findById(avatar.avatarId);
-      console.log("predefinedAvatar", predefinedAvatar);
       if (!predefinedAvatar) {
         res
           .status(404)
@@ -127,7 +121,6 @@ export const createProject = async (
         instructions: `You are a helpful AI assistant for the website ${websiteUrl}. Use the following content to answer questions:\n\n${instructions}`,
         model: "gpt-4o-mini",
       });
-      console.log("assistant", assistant);
       assistantId = assistant.id;
     }
 
@@ -164,11 +157,10 @@ export const getProjects = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
-    console.log("userId", userId);
+
     const projects = await Project.find({ owner: userId })
       .populate("avatar")
       .sort({ createdAt: -1 });
-    console.log("projects GOTTEN");
 
     res.status(200).json(projects);
   } catch (error) {
@@ -196,7 +188,7 @@ export const getProjectById = async (
       res.status(404).json({ message: "Project not found" });
       return;
     }
-    console.log("project", project);
+
     res.json(project);
   } catch (error) {
     console.error("Get project error:", error);
@@ -211,7 +203,6 @@ export const updateProject = async (
   req: Request & { file?: Express.Multer.File & { path: string } },
   res: Response
 ): Promise<void> => {
-  console.log("updateProject CALLED", req.file);
   try {
     const {
       name,
@@ -279,7 +270,6 @@ export const updateProject = async (
     if (appearance) project.appearance = appearance;
 
     project.embedCode = generateEmbedCode(project);
-    console.log("project.embedCode", project.embedCode);
     const updatedProject = await project.save();
     res.status(200).json(updatedProject);
   } catch (error) {
@@ -317,7 +307,6 @@ export const deleteProject = async (
     }
 
     await project.deleteOne();
-    console.log("project and associated assistant deleted");
     res.status(200).json({ message: "Project removed" });
   } catch (error) {
     console.error("Delete project error:", error);
@@ -447,15 +436,12 @@ export const updateConfiguration = async (
     // Update only the provided fields
     const updateData: any = {};
     if (welcomeMessage !== undefined) {
-      console.log("welcomeMessage", welcomeMessage);
       updateData["configuration.welcomeMessage"] = welcomeMessage;
     }
     if (sampleQuestions !== undefined) {
-      console.log("sampleQuestions", sampleQuestions);
       updateData["configuration.sampleQuestions"] = sampleQuestions;
     }
     if (appearance !== undefined) {
-      console.log("DEEP APPEARANCE", appearance);
       updateData["appearance"] = appearance;
     }
 
@@ -471,7 +457,6 @@ export const updateConfiguration = async (
       return;
     }
     updatedProject.embedCode = generateEmbedCode(updatedProject);
-    console.log("updatedProject.embedCode", updatedProject.embedCode);
     await updatedProject.save();
 
     res.status(200).json(updatedProject.configuration);
@@ -488,7 +473,6 @@ export const getConfiguration = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  console.log("getConfiguration CALLED", req.params);
   try {
     const { id } = req.params;
 
@@ -555,7 +539,6 @@ export const updateProjectAvatar = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  console.log("updateProjectAvatar CALLED", req.body);
   try {
     const { id } = req.params;
     const { avatarId } = req.body;
@@ -590,7 +573,6 @@ export const updateProjectAvatar = async (
       res.status(404).json({ message: "Project not found" });
       return;
     }
-    console.log("project.avatar DONE", project.avatar);
     res.json({
       message: "Project avatar updated successfully",
       avatar: project.avatar,

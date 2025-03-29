@@ -6,6 +6,8 @@ import {
   deleteKnowledgeFile,
   updateCustomFaq,
   deleteCustomFaq,
+  addKnowledgeFile,
+  addCustomFaq,
 } from "../controllers/trainingController";
 
 import { protect } from "../middleware/auth";
@@ -27,5 +29,12 @@ router.delete(
 );
 router.put("/:projectId/customfaqs/:faqId", protect, updateCustomFaq);
 router.delete("/:projectId/customfaqs/:faqId", protect, deleteCustomFaq);
+router.post(
+  "/:projectId/knowledgefiles",
+  protect,
+  handleDocumentUpload,
+  addKnowledgeFile
+);
+router.post("/:projectId/customfaqs", protect, addCustomFaq);
 
 export default router;

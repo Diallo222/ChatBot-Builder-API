@@ -60,7 +60,6 @@ const blogController = {
 
   // Public Controllers
   getAllBlogs: async (_req: Request, res: Response) => {
-    console.log("getAllBlogs");
     try {
       const blogs = await Blog.find().sort({ createdAt: -1 });
       return res.status(200).json(blogs);

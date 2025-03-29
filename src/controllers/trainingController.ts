@@ -16,7 +16,6 @@ export const trainProjectAI = async (
   try {
     const { projectId } = req.params;
     const files = (req.files as Express.Multer.File[]) || [];
-    console.log("files GGG", files);
     let customFaqs = req.body.customFaqs;
 
     // Parse customFaqs if it's a string
@@ -64,7 +63,7 @@ export const trainProjectAI = async (
     if (files.length > 0) {
       const processedFiles = files.map((file) => ({
         content: file.originalname,
-        cloudinaryUrl: file.path,
+        path: file.path,
         createdAt: new Date(),
         updatedAt: new Date(),
       }));
@@ -81,7 +80,7 @@ export const trainProjectAI = async (
         .map(({ question, answer }) => ({ question, answer })) || [];
 
     const trainingContent = [
-      ...project.knowledgefiles.flatMap((kf) => kf.files),
+      ...project.knowledgefiles.map((kf) => kf.content),
       ...project.customFaqs.map(
         (faq) => `Q: ${faq.question}\nA: ${faq.answer}`
       ),
@@ -170,6 +169,7 @@ export const updateKnowledgeFile = async (
   >,
   res: Response
 ): Promise<void> => {
+  console.log("updateKnowledgeFile", req.body);
   try {
     const { projectId, knowledgeFileId } = req.params;
     const { name, description } = req.body;
@@ -200,6 +200,7 @@ export const updateKnowledgeFile = async (
     );
     res.json(updatedKnowledgeFile);
   } catch (error) {
+    console.log("updateKnowledgeFile", error);
     console.error("Update knowledge file error:", error);
     res.status(500).json({
       message: "Error updating knowledge file",
@@ -269,6 +270,25 @@ export const updateCustomFaq = async (
       return;
     }
 
+    // Update assistant with new FAQ content
+    const trainingContent = [
+      ...project.knowledgefiles.map((kf) => kf.content),
+      ...project.customFaqs.map(
+        (faq) => `Q: ${faq.question}\nA: ${faq.answer}`
+      ),
+    ].join("\n\n");
+    const scrapedInstructions = project.scrapedPages
+      .filter((page) => page)
+      .map((page) => `Content from ${page.url}:\n${page.content}`)
+      .join("\n\n");
+
+    if (project.assistantId) {
+      await openai.beta.assistants.update(project.assistantId, {
+        instructions: `You are a helpful AI assistant for the website ${project.websiteUrl}. Use the following content to answer questions:\n\n${scrapedInstructions}, and the following knowledge:\n\n${trainingContent}`,
+        model: "gpt-4o-mini",
+      });
+    }
+
     const updatedFaq = project.customFaqs.find(
       (faq) => faq._id?.toString() === faqId
     );
@@ -304,11 +324,167 @@ export const deleteCustomFaq = async (
       return;
     }
 
+    // Update assistant after FAQ deletion
+    const trainingContent = [
+      ...project.knowledgefiles.map((kf) => kf.content),
+      ...project.customFaqs.map(
+        (faq) => `Q: ${faq.question}\nA: ${faq.answer}`
+      ),
+    ].join("\n\n");
+    const scrapedInstructions = project.scrapedPages
+      .filter((page) => page)
+      .map((page) => `Content from ${page.url}:\n${page.content}`)
+      .join("\n\n");
+
+    if (project.assistantId) {
+      await openai.beta.assistants.update(project.assistantId, {
+        instructions: `You are a helpful AI assistant for the website ${project.websiteUrl}. Use the following content to answer questions:\n\n${scrapedInstructions}, and the following knowledge:\n\n${trainingContent}`,
+        model: "gpt-4o-mini",
+      });
+    }
+
     res.json({ message: "FAQ deleted successfully" });
   } catch (error) {
     console.error("Delete FAQ error:", error);
     res.status(500).json({
       message: "Error deleting FAQ",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+export const addKnowledgeFile = async (
+  req: Request<{ projectId: string }>,
+  res: Response
+): Promise<void> => {
+  try {
+    const { projectId } = req.params;
+    const files = (req.files as Express.Multer.File[]) || [];
+
+    if (files.length === 0) {
+      res.status(400).json({ message: "No files provided" });
+      return;
+    }
+
+    const project = await Project.findOne({
+      _id: projectId,
+      owner: req.user!.id,
+    });
+
+    if (!project) {
+      res.status(404).json({ message: "Project not found" });
+      return;
+    }
+
+    const processedFiles = files.map((file) => ({
+      content: file.originalname,
+      path: file.path,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+
+    project.knowledgefiles.push(...processedFiles);
+    await project.save();
+
+    // Update assistant with new knowledge files
+    const trainingContent = [
+      ...project.knowledgefiles.map((kf) => kf.content),
+      ...project.customFaqs.map(
+        (faq) => `Q: ${faq.question}\nA: ${faq.answer}`
+      ),
+    ].join("\n\n");
+    const scrapedInstructions = project.scrapedPages
+      .filter((page) => page)
+      .map((page) => `Content from ${page.url}:\n${page.content}`)
+      .join("\n\n");
+
+    if (project.assistantId) {
+      await openai.beta.assistants.update(project.assistantId, {
+        instructions: `You are a helpful AI assistant for the website ${project.websiteUrl}. Use the following content to answer questions:\n\n${scrapedInstructions}, and the following knowledge:\n\n${trainingContent}`,
+        model: "gpt-4o-mini",
+      });
+    }
+
+    res.status(201).json({
+      message: "Knowledge files added successfully",
+      knowledgefiles: processedFiles,
+    });
+  } catch (error) {
+    console.error("Add knowledge file error:", error);
+    res.status(500).json({
+      message: "Error adding knowledge file",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+export const addCustomFaq = async (
+  req: Request<{ projectId: string }, {}, { customFaqs: ICustomFaq[] }>,
+  res: Response
+): Promise<void> => {
+  try {
+    const { projectId } = req.params;
+    const { customFaqs } = req.body;
+
+    if (!Array.isArray(customFaqs)) {
+      res.status(400).json({ message: "customFaqs must be an array" });
+      return;
+    }
+
+    if (
+      customFaqs.some((faq) => !faq.question?.trim() || !faq.answer?.trim())
+    ) {
+      res.status(400).json({
+        message: "All FAQs must have non-empty question and answer",
+      });
+      return;
+    }
+
+    const project = await Project.findOne({
+      _id: projectId,
+      owner: req.user!.id,
+    });
+
+    if (!project) {
+      res.status(404).json({ message: "Project not found" });
+      return;
+    }
+
+    const validFaqs = customFaqs.map(({ question, answer }) => ({
+      question: question.trim(),
+      answer: answer.trim(),
+    }));
+
+    project.customFaqs.push(...validFaqs);
+    await project.save();
+
+    // Update assistant with new FAQs
+    const trainingContent = [
+      ...project.knowledgefiles.map((kf) => kf.content),
+      ...project.customFaqs.map(
+        (faq) => `Q: ${faq.question}\nA: ${faq.answer}`
+      ),
+    ].join("\n\n");
+    const scrapedInstructions = project.scrapedPages
+      .filter((page) => page)
+      .map((page) => `Content from ${page.url}:\n${page.content}`)
+      .join("\n\n");
+
+    if (project.assistantId) {
+      await openai.beta.assistants.update(project.assistantId, {
+        instructions: `You are a helpful AI assistant for the website ${project.websiteUrl}. Use the following content to answer questions:\n\n${scrapedInstructions}, and the following knowledge:\n\n${trainingContent}`,
+        model: "gpt-4o-mini",
+      });
+    }
+
+    res.status(201).json({
+      message: "Custom FAQs added successfully",
+      customFaqs: validFaqs,
+    });
+  } catch (error) {
+    console.error("Add custom FAQ error:", error);
+    res.status(500).json({
+      message: "Error adding custom FAQs",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }

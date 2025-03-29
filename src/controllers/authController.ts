@@ -35,8 +35,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // Get the free plan
     const freePlan = await Plan.findOne({ price: 0 });
     if (!freePlan) {
-      console.log("freePlan", freePlan);
-
       res.status(404).json({ message: "Free plan not found" });
       return;
     }
@@ -68,8 +66,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ message: "Invalid user data" });
     }
   } catch (error) {
-    console.log("error", error);
-
+    console.error("Register error:", error);
     console.error("Register error:", error);
     res.status(500).json({
       message: "Server error",
@@ -80,8 +77,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 // Login user
 export const login = async (req: Request, res: Response): Promise<void> => {
-  console.log("login route req.body", req.body);
-
   try {
     const { email, password } = req.body;
 
@@ -116,8 +111,6 @@ export const getUserProfile = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  // console.log("getUserProfile route req.user", req.user);
-
   try {
     // req.user is set by the auth middleware
     const user = await User.findById(req.user?.id)
@@ -128,7 +121,6 @@ export const getUserProfile = async (
       res.status(404).json({ message: "User not found" });
       return;
     }
-    // console.log("user", user);
     res.status(200).json(user);
   } catch (error) {
     console.error("Get profile error:", error);
@@ -176,7 +168,6 @@ export const updatePassword = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  console.log("updatePassword route req.body", req.body);
   try {
     const { currentPassword, newPassword } = req.body;
 
@@ -212,8 +203,6 @@ export const updatePassword = async (
 };
 
 export const refresh = async (req: Request, res: Response): Promise<void> => {
-  console.log("refresh route req.cookies", req.cookies);
-
   try {
     const refreshToken = req.cookies.refreshToken;
 
@@ -224,7 +213,6 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
 
     const decoded = verifyToken(refreshToken, true);
     const user = await User.findById(decoded.userId); // Use 'id' instead of 'userId'
-    console.log("user", user);
     if (!user) {
       res.status(401).json({ message: "User not found" });
       return;
@@ -241,10 +229,8 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const logout = async (req: Request, res: Response): Promise<void> => {
-  console.log("logout route req.cookies", req.cookies);
   try {
     clearTokenCookies(res);
-    console.log("Logged out successfully");
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout error:", error);
@@ -256,8 +242,6 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const me = async (req: Request, res: Response): Promise<void> => {
-  console.log("me route req.user", req.user);
-
   try {
     const user = req.user;
     if (!user) {
@@ -273,8 +257,6 @@ export const me = async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (error) {
-    console.log("me route error", error);
-
     console.error("Get user error:", error);
     res.status(500).json({
       message: "Error fetching user data",

@@ -3,6 +3,7 @@ import cloudinary from "../config/cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import dotenv from "dotenv";
 import { Request, Response, NextFunction } from "express";
+import path from "path";
 dotenv.config();
 
 // Extend the Params type to include the folder property
@@ -17,16 +18,19 @@ interface CustomParams {
 const documentStorage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: "document_uploads", // Folder name in Cloudinary
+    folder: "document_uploads",
     resource_type: "auto",
-    public_id: (req, file) =>
-      `document-${Date.now()}-${Math.round(
+    public_id: (req, file) => {
+      const ext = path.extname(file.originalname); // Get file extension
+      const sanitizedBase = file.originalname
+        .replace(ext, "") // Remove extension for sanitization
+        .replace(/[^a-zA-Z0-9]/g, "-");
+      return `document-${Date.now()}-${Math.round(
         Math.random() * 1e9
-      )}-${file.originalname
-        .replace(/\.[^/.]+$/, "") // Remove extension
-        .replace(/[^a-zA-Z0-9]/g, "-")}`, // Sanitize filename
+      )}-${sanitizedBase}${ext}`; // Append extension back
+    },
     allowed_formats: ["pdf", "doc", "docx", "txt", "csv", "json"],
-  } as CustomParams, // Cast to CustomParams
+  } as CustomParams,
 });
 
 // Define allowed MIME types for documents
@@ -34,8 +38,9 @@ const allowedDocumentMimeTypes = [
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain", // TXT
+  "text/plain",
   "text/csv",
+  "application/csv",
   "application/json",
 ];
 
@@ -45,14 +50,20 @@ const documentFileFilter = (
   file: Express.Multer.File,
   cb: any
 ) => {
-  if (allowedDocumentMimeTypes.includes(file.mimetype)) {
+  const allowedExtensions = [".pdf", ".doc", ".docx", ".txt", ".csv", ".json"];
+  const ext = path.extname(file.originalname).toLowerCase();
+
+  if (
+    allowedDocumentMimeTypes.includes(file.mimetype) ||
+    allowedExtensions.includes(ext)
+  ) {
     cb(null, true);
   } else {
     cb(
       new Error(
-        `Unsupported file type: ${
-          file.mimetype
-        }. Supported types: ${allowedDocumentMimeTypes.join(", ")}`
+        `Unsupported file type. Allowed types: ${allowedDocumentMimeTypes.join(
+          ", "
+        )}`
       ),
       false
     );

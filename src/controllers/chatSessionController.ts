@@ -11,7 +11,6 @@ export const getChatSessions = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  console.log("Getting chat sessions", req.params, req.query);
   try {
     const { projectId } = req.params;
     const { page = 1, limit = 10, startDate, endDate, status } = req.query;
@@ -182,8 +181,6 @@ export const createChatSession = async (
         browser: req.headers["sec-ch-ua"],
       },
     });
-
-    console.log("Chat session created:", chatSession);
     res.status(201).json(chatSession);
   } catch (error) {
     console.error("Create chat session error:", error);

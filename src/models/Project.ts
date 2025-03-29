@@ -15,7 +15,7 @@ export interface ICustomFaq {
 export interface IProcessedFile {
   _id?: mongoose.Types.ObjectId;
   content: string;
-  cloudinaryUrl: string;
+  path: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -133,7 +133,7 @@ const ProjectSchema: Schema = new Schema(
     knowledgefiles: [
       {
         content: { type: String },
-        cloudinaryUrl: { type: String, required: true },
+        path: { type: String },
         createdAt: { type: Date, default: Date.now },
         updatedAt: { type: Date, default: Date.now },
       },

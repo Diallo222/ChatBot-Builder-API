@@ -80,7 +80,7 @@ export const getAvatars = async (
     const avatars = await Avatar.find({
       $or: [{ isPublic: true }, { owner: req.user!.id }],
     }).sort({ createdAt: -1 });
-    console.log("ALL AVATARS", avatars);
+
     res.status(200).json(avatars);
   } catch (error) {
     console.error("Get avatars error:", error);
@@ -241,13 +241,6 @@ export const createPublicAIAvatar = async (
     const name = String(req.body.name || "").trim();
     const prompt = String(req.body.prompt || "").trim();
     const referenceImage = req.file;
-
-    console.log("Parsed values:", {
-      name,
-      prompt,
-      rawBody: req.body,
-      contentType: req.headers["content-type"],
-    });
 
     if (!name || !prompt) {
       res.status(400).json({
