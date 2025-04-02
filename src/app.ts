@@ -16,7 +16,6 @@ import trainingRoutes from "./routes/trainingRoutes";
 import forgotRoutes from "./routes/forgotRoutes";
 import publicBlogRoutes from "./routes/publicBlogRoutes";
 import cookieParser from "cookie-parser";
-import csrf from "csurf";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { createDefaultFreePlan } from "./controllers/planController";
@@ -84,8 +83,7 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "x-csrf-token", "Authorization"],
-    exposedHeaders: ["x-csrf-token"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -103,17 +101,6 @@ app.use(cookieParser());
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/public-blogs", publicBlogRoutes);
 app.use("/api/documents", documentRoutes);
-
-const csrfProtection = csrf({
-  cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  },
-}) as unknown as RequestHandler; // <-- Type assertion here
-
-// CSRF protection
-app.use(csrfProtection);
 
 // Serve static files from both src and dist
 if (process.env.NODE_ENV === "production") {
@@ -167,11 +154,6 @@ app.post(
 // Default route
 app.get("/", (req, res) => {
   res.send("API is running...");
-});
-
-app.get("/api/csrf-token", (req, res) => {
-  // console.log("csrfToken", req.csrfToken());
-  res.json({ csrfToken: req.csrfToken() });
 });
 
 export default app;

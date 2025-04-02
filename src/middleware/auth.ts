@@ -2,7 +2,11 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User, { IUser } from "../models/User";
 import { Admin, IAdmin } from "../models/Admin";
-import { verifyToken, verifyAdminToken } from "../services/authService";
+import {
+  verifyToken,
+  verifyAdminToken,
+  extractTokenFromHeader,
+} from "../services/authService";
 import rateLimit from "express-rate-limit";
 
 interface JwtPayload {
@@ -14,7 +18,6 @@ declare global {
   namespace Express {
     interface Request {
       user?: IUser;
-      csrfToken(): string;
       admin?: { id: string };
     }
   }
@@ -27,19 +30,6 @@ export const authLimiter = rateLimit({
   message: "Too many login attempts, please try again later",
 });
 
-// CSRF Protection
-export const csrfProtection = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const token = req.headers["x-csrf-token"];
-  if (!token || token !== req.csrfToken?.()) {
-    return res.status(403).json({ message: "Invalid CSRF token" });
-  }
-  next();
-};
-
 // Protected route middleware
 export const protect = async (
   req: Request,
@@ -47,10 +37,14 @@ export const protect = async (
   next: NextFunction
 ): Promise<void | Response> => {
   try {
-    const token = req.cookies.accessToken;
+    // Get token from header instead of cookie
+    const authHeader = req.headers.authorization;
+    const token = extractTokenFromHeader(authHeader);
 
     if (!token) {
-      return res.status(401).json({ message: "Not authenticated" });
+      return res
+        .status(401)
+        .json({ message: "Not authenticated: No token provided" });
     }
 
     const decoded = verifyToken(token);
@@ -81,12 +75,14 @@ export const admin = (
 
 export const auth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const accessToken = req.cookies.accessToken;
-    if (!accessToken) {
+    const authHeader = req.headers.authorization;
+    const token = extractTokenFromHeader(authHeader);
+
+    if (!token) {
       return res.status(401).json({ message: "Authorization token required" });
     }
 
-    const decoded = verifyAdminToken(accessToken);
+    const decoded = verifyAdminToken(token);
     req.admin = { id: decoded.adminId };
     next();
   } catch (error) {

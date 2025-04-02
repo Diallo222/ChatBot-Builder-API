@@ -9,6 +9,8 @@ import {
   setTokenCookies,
   clearTokenCookies,
   verifyAdminToken,
+  returnTokens,
+  extractTokenFromHeader,
 } from "../services/authService";
 import Plan from "../models/Plan";
 import { stripe } from "../config/stripe";
@@ -28,12 +30,12 @@ export const login = async (req: express.Request, res: express.Response) => {
     }
 
     const tokens = generateAdminTokens(admin as unknown as IAdmin);
-    setTokenCookies(res, tokens);
+    const tokenResponse = returnTokens(tokens);
 
     res.json({
       adminId: admin._id,
       email: admin.email,
-      csrfToken: req.csrfToken(),
+      ...tokenResponse,
     });
   } catch (error) {
     console.log("login route error", error);
@@ -42,9 +44,9 @@ export const login = async (req: express.Request, res: express.Response) => {
 };
 
 export const refresh = async (req: express.Request, res: express.Response) => {
-  //   console.log("refresh route req.cookies", req.cookies);
   try {
-    const refreshToken = req.cookies.refreshToken;
+    const authHeader = req.headers.authorization;
+    const refreshToken = extractTokenFromHeader(authHeader);
 
     if (!refreshToken) {
       return res.status(401).json({ message: "Refresh token not found" });
@@ -58,9 +60,12 @@ export const refresh = async (req: express.Request, res: express.Response) => {
     }
 
     const tokens = generateAdminTokens(admin as unknown as IAdmin);
-    setTokenCookies(res, tokens);
+    const tokenResponse = returnTokens(tokens);
 
-    res.json({ message: "Token refreshed successfully" });
+    res.json({
+      message: "Token refreshed successfully",
+      ...tokenResponse,
+    });
   } catch (error) {
     console.log("refresh route error", error);
     res.status(500).json({ message: "Server error" });
@@ -69,7 +74,6 @@ export const refresh = async (req: express.Request, res: express.Response) => {
 
 export const logout = async (req: express.Request, res: express.Response) => {
   try {
-    clearTokenCookies(res);
     res.json({ message: "Admin logged out successfully" });
   } catch (error) {
     console.log("logout route error", error);
@@ -116,7 +120,6 @@ export const getOverview = async (
   req: express.Request,
   res: express.Response
 ) => {
-  console.log("getOverview route req.admin", req.admin);
   try {
     const now = new Date();
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -268,22 +271,6 @@ export const getAllUsers = async (
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
-};
-
-// Add error handling middleware for CSRF errors
-export const handleCSRFError = (
-  err: any,
-  req: express.Request,
-  res: express.Response,
-  next: express.NextFunction
-) => {
-  if (err.code === "EBADCSRFTOKEN") {
-    return res.status(403).json({
-      message: "Invalid CSRF token",
-      error: "CSRF_ERROR",
-    });
-  }
-  next(err);
 };
 
 export const getSubscriptionsOverview = async (

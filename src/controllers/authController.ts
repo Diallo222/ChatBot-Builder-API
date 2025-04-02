@@ -7,6 +7,8 @@ import {
   setTokenCookies,
   clearTokenCookies,
   verifyToken,
+  returnTokens,
+  extractTokenFromHeader,
 } from "../services/authService";
 import { validatePassword } from "../utils/passwordUtils";
 import dotenv from "dotenv";
@@ -55,12 +57,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     if (user) {
       const tokens = generateTokens(user);
-      setTokenCookies(res, tokens);
+
       res.status(201).json({
         _id: user._id,
         email: user.email,
         fullName: user.fullName,
         role: user.role,
+        tokens: returnTokens(tokens),
       });
     } else {
       res.status(400).json({ message: "Invalid user data" });
@@ -87,8 +90,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const tokens = generateTokens(user);
-    setTokenCookies(res, tokens);
 
+    // Return tokens in response body instead of setting cookies
     res.json({
       message: "Login successful",
       user: {
@@ -96,6 +99,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         email: user.email,
         fullName: user.fullName,
       },
+      tokens: returnTokens(tokens),
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -204,7 +208,9 @@ export const updatePassword = async (
 
 export const refresh = async (req: Request, res: Response): Promise<void> => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    // Get token from authorization header
+    const authHeader = req.headers.authorization;
+    const refreshToken = extractTokenFromHeader(authHeader);
 
     if (!refreshToken) {
       res.status(401).json({ message: "Refresh token not found" });
@@ -212,16 +218,19 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
     }
 
     const decoded = verifyToken(refreshToken, true);
-    const user = await User.findById(decoded.userId); // Use 'id' instead of 'userId'
+    const user = await User.findById(decoded.userId);
     if (!user) {
       res.status(401).json({ message: "User not found" });
       return;
     }
 
     const tokens = generateTokens(user);
-    setTokenCookies(res, tokens);
 
-    res.json({ message: "Token refreshed successfully" });
+    // Return new tokens in response
+    res.json({
+      message: "Token refreshed successfully",
+      tokens: returnTokens(tokens),
+    });
   } catch (error) {
     console.error("Token refresh error:", error);
     res.status(401).json({ message: "Invalid refresh token" });
@@ -229,16 +238,9 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const logout = async (req: Request, res: Response): Promise<void> => {
-  try {
-    clearTokenCookies(res);
-    res.status(200).json({ message: "Logged out successfully" });
-  } catch (error) {
-    console.error("Logout error:", error);
-    res.status(500).json({
-      message: "Error during logout",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
+  // For Bearer token auth, client-side should simply discard the tokens
+  // No server-side action needed as tokens are stateless
+  res.status(200).json({ message: "Logged out successfully" });
 };
 
 export const me = async (req: Request, res: Response): Promise<void> => {

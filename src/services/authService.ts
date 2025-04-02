@@ -66,8 +66,8 @@ export const generateAdminTokens = (admin: IAdmin): Tokens => {
 };
 
 export const setTokenCookies = (res: Response, tokens: Tokens): void => {
-  // Set secure HTTP-only cookies
-  // console.log("setTokenCookies tokens", tokens);
+  // Deprecated - we now use Bearer tokens instead of cookies
+  console.warn("setTokenCookies is deprecated, use returnTokens instead");
   res.cookie("accessToken", tokens.accessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -96,7 +96,17 @@ export const setTokenCookies = (res: Response, tokens: Tokens): void => {
   });
 };
 
+export const returnTokens = (
+  tokens: Tokens
+): {
+  accessToken: string;
+  refreshToken: string;
+} => {
+  return tokens;
+};
+
 export const clearTokenCookies = (res: Response): void => {
+  // For backward compatibility during transition
   res.cookie("accessToken", "", { maxAge: 0, path: "/" });
   res.cookie("refreshToken", "", { maxAge: 0, path: "/api/auth/refresh" });
 };
@@ -134,4 +144,11 @@ export const verifyAdminToken = (
     console.error("Token verification error:", error);
     throw new Error("Invalid or expired token");
   }
+};
+
+export const extractTokenFromHeader = (authHeader?: string): string | null => {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return null;
+  }
+  return authHeader.substring(7); // Remove 'Bearer ' prefix
 };
