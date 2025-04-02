@@ -237,8 +237,6 @@ export const createDefaultFreePlan = async (): Promise<void> => {
       stripeProductId: product.id,
       stripePriceId: stripePrice.id,
     });
-
-    console.log("Default free plan created successfully");
   } catch (error) {
     console.error("Create default free plan error:", error);
     throw error;

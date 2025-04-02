@@ -6,7 +6,7 @@ export const parseFile = async (file: Express.Multer.File): Promise<string> => {
   try {
     const fileContent = await fs.readFile(file.path);
     const fileType = file.mimetype;
-    console.log("fileType", fileType);
+    // console.log("fileType", fileType);
 
     let result: string;
 

@@ -8,9 +8,6 @@ const storage = new CloudinaryStorage({
   params: {
     public_id: (req: Request, file: Express.Multer.File): string =>
       `avatars/${file.originalname}`,
-    // resource_type: "auto" as unknown as string, // Use type assertion here
-    // allowed_formats: ["jpg", "jpeg", "png"],
-    // transformation: [{ width: 500, height: 500, crop: "limit" }],
   },
 });
 

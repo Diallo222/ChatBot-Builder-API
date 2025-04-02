@@ -23,6 +23,7 @@ import { createDefaultFreePlan } from "./controllers/planController";
 import tutorialRoutes from "./routes/tutorialRoutes";
 import blogRoutes from "./routes/blogRoutes";
 import path from "path";
+import documentRoutes from "./routes/documentRoutes";
 
 // Load environment variables
 dotenv.config();
@@ -101,6 +102,7 @@ app.use(cookieParser());
 
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/public-blogs", publicBlogRoutes);
+app.use("/api/documents", documentRoutes);
 
 const csrfProtection = csrf({
   cookie: {

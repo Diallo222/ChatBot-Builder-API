@@ -8,15 +8,33 @@ interface ScrapedPage {
 }
 
 export const scrapeWebsite = async (url: string): Promise<ScrapedPage[]> => {
-  // console.log("url", url);
-
   try {
+    let normalizedUrl = url;
+    // Add https:// prefix if missing
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      normalizedUrl = `https://${normalizedUrl}`;
+    }
+
+    // Check for HTTP -> HTTPS upgrade
+    if (normalizedUrl.startsWith("http://")) {
+      const httpsUrl = normalizedUrl.replace("http://", "https://");
+      try {
+        // Test HTTPS connection with a HEAD request
+        await axios.head(httpsUrl, {
+          timeout: 5000,
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; YourBot/1.0)" },
+        });
+        normalizedUrl = httpsUrl;
+      } catch (error) {
+        console.log(`HTTPS unavailable, using HTTP: ${normalizedUrl}`);
+      }
+    }
+
     const visited = new Set<string>();
-    const baseUrl = new URL(url).origin;
+    const baseUrl = new URL(normalizedUrl).origin;
     const pages: ScrapedPage[] = [];
 
-    await scrapePage(url, baseUrl, visited, pages);
-    // console.log("pages", pages);
+    await scrapePage(normalizedUrl, baseUrl, visited, pages);
 
     return pages;
   } catch (error) {
@@ -33,7 +51,7 @@ const scrapePage = async (
   visited: Set<string>,
   pages: ScrapedPage[]
 ): Promise<void> => {
-  if (visited.has(url) || !url.startsWith(baseUrl)) {
+  if (visited.has(url)) {
     return;
   }
 
@@ -43,6 +61,11 @@ const scrapePage = async (
       timeout: 10000,
       headers: { "User-Agent": "Mozilla/5.0 (compatible; YourBot/1.0)" },
     });
+
+    // Get final URL after redirects with fallback to original URL
+    const finalUrl = response.config.url || url;
+    const actualBaseUrl = new URL(finalUrl).origin;
+
     const $ = cheerio.load(response.data);
 
     // Remove script tags, style tags, and comments
@@ -57,15 +80,14 @@ const scrapePage = async (
       content,
     });
 
-    // Improved link filtering
+    // Process links using actual base URL from final response
     const links = $("a[href]")
       .map((_, el) => {
         const href = $(el).attr("href");
         if (!href) return null;
 
         try {
-          const resolvedUrl = new URL(href, baseUrl);
-          // Normalize URL and remove query parameters
+          const resolvedUrl = new URL(href, actualBaseUrl);
           resolvedUrl.hash = "";
           resolvedUrl.search = "";
           return resolvedUrl.href;
@@ -77,17 +99,16 @@ const scrapePage = async (
       .filter(
         (href): href is string =>
           href !== null &&
-          href.startsWith(baseUrl) &&
+          href.startsWith(actualBaseUrl) &&
           !visited.has(href) &&
-          // Exclude common non-html extensions
           !/\.(pdf|jpg|jpeg|png|gif|svg|css|js)$/i.test(href)
       );
 
-    // Add delay between requests and better concurrency control
+    // Recursive calls with actual base URL
     await Promise.all(
       links.slice(0, 5).map(async (link, index) => {
         await new Promise((resolve) => setTimeout(resolve, index * 500));
-        return scrapePage(link, baseUrl, visited, pages);
+        return scrapePage(link, actualBaseUrl, visited, pages);
       })
     );
   } catch (error) {

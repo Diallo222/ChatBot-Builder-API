@@ -4,7 +4,6 @@ import { auth } from "../middleware/auth";
 import cloudinaryUpload from "../middleware/cloudinaryUpload";
 const router = express.Router();
 
-// Admin routes (protected)
 router.post(
   "/",
   auth,

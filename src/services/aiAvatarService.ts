@@ -37,7 +37,7 @@ export const generateAIAvatar = async (
         seed: options.seed,
       },
     });
-    console.log("response", response.data);
+    // console.log("response", response.data);
     const imageUrl = response.data.images[0].url;
     if (!imageUrl) {
       throw new Error("No image generated");

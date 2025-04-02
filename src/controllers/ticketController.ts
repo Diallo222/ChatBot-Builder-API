@@ -18,8 +18,6 @@ export const createTicket = async (req: Request, res: Response) => {
 
     res.status(201).json(ticket);
   } catch (error) {
-    console.log("CREATE TICKET ERROR", error);
-
     res.status(500).json({ error: "Error creating ticket" });
   }
 };
@@ -27,8 +25,6 @@ export const createTicket = async (req: Request, res: Response) => {
 export const getUserTickets = async (req: Request, res: Response) => {
   try {
     const tickets = await Ticket.find({ user: req.user?._id });
-    console.log("tickets", tickets[0]);
-
     res.status(200).json(tickets);
   } catch (error) {
     res.status(500).json({ error: "Error fetching tickets" });
@@ -71,8 +67,6 @@ export const respondToTicket = async (req: Request, res: Response) => {
   try {
     const { ticketId } = req.params;
     const { response } = req.body;
-    console.log("ticketId", ticketId);
-    console.log("response", response);
 
     const ticket = await Ticket.findByIdAndUpdate(
       ticketId,

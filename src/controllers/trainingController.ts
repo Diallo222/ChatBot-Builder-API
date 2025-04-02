@@ -13,6 +13,7 @@ export const trainProjectAI = async (
   res: Response
 ): Promise<void> => {
   let project: any;
+
   try {
     const { projectId } = req.params;
     const files = (req.files as Express.Multer.File[]) || [];
@@ -23,6 +24,7 @@ export const trainProjectAI = async (
       try {
         customFaqs = JSON.parse(customFaqs) as ICustomFaq[];
       } catch (e) {
+        console.log("customFaqs ERROR", e);
         res.status(400).json({ message: "Invalid customFaqs format" });
         return;
       }
@@ -146,7 +148,7 @@ export const getTrainingStatus = async (
       res.status(404).json({ message: "Project not found" });
       return;
     }
-    console.log("project", project.knowledgefiles, project.customFaqs);
+    // console.log("project", project.knowledgefiles, project.customFaqs);
     res.status(200).json({
       training: project.training,
       knowledgefiles: project.knowledgefiles,
@@ -169,7 +171,7 @@ export const updateKnowledgeFile = async (
   >,
   res: Response
 ): Promise<void> => {
-  console.log("updateKnowledgeFile", req.body);
+  // console.log("updateKnowledgeFile", req.body);
   try {
     const { projectId, knowledgeFileId } = req.params;
     const { name, description } = req.body;

@@ -19,6 +19,7 @@ import {
   getPublicAvatars,
   updateAvatar,
 } from "../controllers/avatarController";
+import { getDocument, updateDocument } from "../controllers/documentController";
 
 const router = express.Router();
 
@@ -52,5 +53,9 @@ router.delete("/avatars/:id", auth, deleteAvatar);
 router.get("/subscriptions-overview", auth, getSubscriptionsOverview);
 router.get("/users-transactions", auth, getUsersTransactions);
 router.get("/transactions/download", auth, downloadUsersTransactionsCSV);
+
+// Document management routes
+router.get("/documents/:type", auth, getDocument);
+router.put("/documents/:type", auth, updateDocument);
 
 export default router;
