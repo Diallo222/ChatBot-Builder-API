@@ -11,7 +11,7 @@ import {
 } from "../controllers/trainingController";
 
 import { protect } from "../middleware/auth";
-import handleDocumentUpload from "../utils/uploadDocument";
+import { handleDocumentUpload } from "../middleware/fileUpload";
 
 const router = express.Router();
 
