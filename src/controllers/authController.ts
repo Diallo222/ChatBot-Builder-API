@@ -211,6 +211,7 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
     // Get token from authorization header
     const authHeader = req.headers.authorization;
     const refreshToken = extractTokenFromHeader(authHeader);
+    console.log("refreshToken", refreshToken);
 
     if (!refreshToken) {
       res.status(401).json({ message: "Refresh token not found" });

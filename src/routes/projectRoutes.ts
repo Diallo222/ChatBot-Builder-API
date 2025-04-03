@@ -33,5 +33,6 @@ router.put("/:id/avatar", projectController.updateProjectAvatar);
 router.post("/:id/avatar/reset", projectController.resetProjectAvatar);
 
 router.post("/scrape-website", projectController.scrapeWebsitePages);
+router.post("/check-website", projectController.checkWebsitePages);
 
 export default router;

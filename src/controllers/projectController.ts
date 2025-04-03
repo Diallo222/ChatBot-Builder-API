@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import Project, { IProject } from "../models/Project";
 import User from "../models/User";
-import { scrapeWebsite } from "../services/webScraper";
+import { scrapeWebsite, checkScrapablePages } from "../services/webScraper";
 import { IPlan } from "../models/Plan";
 import { LauncherIcon, IScrapedPage } from "../models/Project";
 import Avatar from "../models/Avatar";
@@ -644,6 +644,48 @@ export const scrapeWebsitePages = async (
     console.error("Website scraping error:", error);
     res.status(500).json({
       message: "Error scraping website",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+// Updated controller for checking scrapable pages
+export const checkWebsitePages = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { websiteUrl } = req.body;
+
+    if (!websiteUrl) {
+      res.status(400).json({ message: "Website URL is required" });
+      return;
+    }
+
+    const result = await checkScrapablePages(websiteUrl);
+
+    if (!result.canScrape) {
+      // console.log("result", result);
+
+      res.status(422).json({
+        websiteUrl,
+        canScrape: false,
+        pagesCount: 0,
+        message: result.message,
+      });
+      return;
+    }
+
+    res.json({
+      websiteUrl,
+      canScrape: true,
+      pagesCount: result.pagesCount,
+      message: result.message,
+    });
+  } catch (error) {
+    console.error("Website check error:", error);
+    res.status(500).json({
+      message: "Error checking website pages",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }

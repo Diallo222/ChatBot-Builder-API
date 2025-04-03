@@ -2,11 +2,72 @@ import { Request, Response } from "express";
 import Project from "../models/Project";
 import openai from "../config/openai";
 import { ICustomFaq } from "../models/Project";
+import cloudinary from "../config/cloudinary";
 
 interface TrainingRequestBody {
   knowledgefiles?: Express.Multer.File[];
   customFaqs?: ICustomFaq[];
 }
+
+// Helper function to format and limit training content
+const formatLimitedTrainingContent = (
+  project: any
+): { trainingContent: string; scrapedInstructions: string } => {
+  const MAX_CONTENT_LENGTH = 8000; // Characters limit for instructions
+  const MAX_FAQS = 30; // Maximum number of FAQs to include
+  const MAX_KNOWLEDGE_FILES = 20; // Maximum number of knowledge files
+  const MAX_SCRAPED_PAGES = 10; // Maximum number of scraped pages
+
+  // Prioritize newer custom FAQs
+  const limitedFaqs = (project.customFaqs || [])
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.updatedAt || 0).getTime() -
+        new Date(a.updatedAt || 0).getTime()
+    )
+    .slice(0, MAX_FAQS)
+    .map((faq: any) => `Q: ${faq.question}\nA: ${faq.answer}`);
+
+  // Prioritize newer knowledge files
+  const limitedKnowledgeFiles = (project.knowledgefiles || [])
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.updatedAt || 0).getTime() -
+        new Date(a.updatedAt || 0).getTime()
+    )
+    .slice(0, MAX_KNOWLEDGE_FILES)
+    .map((kf: any) => kf.content);
+
+  // Combine and limit the training content
+  let trainingContent = [...limitedKnowledgeFiles, ...limitedFaqs].join("\n\n");
+  if (trainingContent.length > MAX_CONTENT_LENGTH) {
+    trainingContent = trainingContent.substring(0, MAX_CONTENT_LENGTH) + "...";
+  }
+
+  // Process and limit scraped pages content
+  const limitedScrapedPages = (project.scrapedPages || [])
+    .filter((page: any) => page)
+    .slice(0, MAX_SCRAPED_PAGES)
+    .map((page: any) => {
+      // Limit each page content
+      const pageContent =
+        page.content.length > 1000
+          ? page.content.substring(0, 1000) + "..."
+          : page.content;
+      return `Content from ${page.url}:\n${pageContent}`;
+    });
+
+  let scrapedInstructions = limitedScrapedPages.join("\n\n");
+  if (scrapedInstructions.length > MAX_CONTENT_LENGTH) {
+    scrapedInstructions =
+      scrapedInstructions.substring(0, MAX_CONTENT_LENGTH) + "...";
+  }
+
+  return {
+    trainingContent,
+    scrapedInstructions,
+  };
+};
 
 export const trainProjectAI = async (
   req: Request<{ projectId: string }, {}, TrainingRequestBody>,
@@ -81,16 +142,8 @@ export const trainProjectAI = async (
         )
         .map(({ question, answer }) => ({ question, answer })) || [];
 
-    const trainingContent = [
-      ...project.knowledgefiles.map((kf) => kf.content),
-      ...project.customFaqs.map(
-        (faq) => `Q: ${faq.question}\nA: ${faq.answer}`
-      ),
-    ].join("\n\n");
-    const scrapedInstructions = project.scrapedPages
-      .filter((page) => page)
-      .map((page) => `Content from ${page.url}:\n${page.content}`)
-      .join("\n\n");
+    const { trainingContent, scrapedInstructions } =
+      formatLimitedTrainingContent(project);
 
     // Update or create OpenAI assistant
     let assistant: any;
@@ -218,6 +271,38 @@ export const deleteKnowledgeFile = async (
   try {
     const { projectId, knowledgeFileId } = req.params;
 
+    // First find the project and the specific knowledge file to get its path
+    const projectWithFile = await Project.findOne({
+      _id: projectId,
+      owner: req.user!.id,
+      "knowledgefiles._id": knowledgeFileId,
+    });
+
+    if (!projectWithFile) {
+      res.status(404).json({ message: "Project or knowledge file not found" });
+      return;
+    }
+
+    // Find the specific knowledge file to delete
+    const knowledgeFile = projectWithFile.knowledgefiles.find(
+      (file) => file._id?.toString() === knowledgeFileId
+    );
+
+    if (knowledgeFile?.path) {
+      // Extract public_id from Cloudinary URL
+      // Cloudinary URLs typically look like: https://res.cloudinary.com/cloud_name/raw/upload/v1234567890/knowledge_files/filename
+      const publicId = knowledgeFile.path.split("/").slice(-2).join("/"); // Gets "knowledge_files/filename"
+
+      try {
+        // Delete file from Cloudinary
+        await cloudinary.uploader.destroy(publicId, { resource_type: "raw" });
+      } catch (cloudinaryError) {
+        console.error("Cloudinary deletion error:", cloudinaryError);
+        // Continue with DB deletion even if Cloudinary deletion fails
+      }
+    }
+
+    // Now remove the file reference from the database
     const project = await Project.findByIdAndUpdate(
       projectId,
       { $pull: { knowledgefiles: { _id: knowledgeFileId } } },
@@ -273,16 +358,8 @@ export const updateCustomFaq = async (
     }
 
     // Update assistant with new FAQ content
-    const trainingContent = [
-      ...project.knowledgefiles.map((kf) => kf.content),
-      ...project.customFaqs.map(
-        (faq) => `Q: ${faq.question}\nA: ${faq.answer}`
-      ),
-    ].join("\n\n");
-    const scrapedInstructions = project.scrapedPages
-      .filter((page) => page)
-      .map((page) => `Content from ${page.url}:\n${page.content}`)
-      .join("\n\n");
+    const { trainingContent, scrapedInstructions } =
+      formatLimitedTrainingContent(project);
 
     if (project.assistantId) {
       await openai.beta.assistants.update(project.assistantId, {
@@ -327,16 +404,8 @@ export const deleteCustomFaq = async (
     }
 
     // Update assistant after FAQ deletion
-    const trainingContent = [
-      ...project.knowledgefiles.map((kf) => kf.content),
-      ...project.customFaqs.map(
-        (faq) => `Q: ${faq.question}\nA: ${faq.answer}`
-      ),
-    ].join("\n\n");
-    const scrapedInstructions = project.scrapedPages
-      .filter((page) => page)
-      .map((page) => `Content from ${page.url}:\n${page.content}`)
-      .join("\n\n");
+    const { trainingContent, scrapedInstructions } =
+      formatLimitedTrainingContent(project);
 
     if (project.assistantId) {
       await openai.beta.assistants.update(project.assistantId, {
@@ -389,16 +458,8 @@ export const addKnowledgeFile = async (
     await project.save();
 
     // Update assistant with new knowledge files
-    const trainingContent = [
-      ...project.knowledgefiles.map((kf) => kf.content),
-      ...project.customFaqs.map(
-        (faq) => `Q: ${faq.question}\nA: ${faq.answer}`
-      ),
-    ].join("\n\n");
-    const scrapedInstructions = project.scrapedPages
-      .filter((page) => page)
-      .map((page) => `Content from ${page.url}:\n${page.content}`)
-      .join("\n\n");
+    const { trainingContent, scrapedInstructions } =
+      formatLimitedTrainingContent(project);
 
     if (project.assistantId) {
       await openai.beta.assistants.update(project.assistantId, {
@@ -461,16 +522,8 @@ export const addCustomFaq = async (
     await project.save();
 
     // Update assistant with new FAQs
-    const trainingContent = [
-      ...project.knowledgefiles.map((kf) => kf.content),
-      ...project.customFaqs.map(
-        (faq) => `Q: ${faq.question}\nA: ${faq.answer}`
-      ),
-    ].join("\n\n");
-    const scrapedInstructions = project.scrapedPages
-      .filter((page) => page)
-      .map((page) => `Content from ${page.url}:\n${page.content}`)
-      .join("\n\n");
+    const { trainingContent, scrapedInstructions } =
+      formatLimitedTrainingContent(project);
 
     if (project.assistantId) {
       await openai.beta.assistants.update(project.assistantId, {

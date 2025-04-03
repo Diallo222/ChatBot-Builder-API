@@ -15,8 +15,16 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: "knowledge_files",
-    allowed_formats: ["pdf", "doc", "docx", "txt", "md", "csv", "xlsx"],
-    resource_type: "auto",
+    resource_type: (req: any, file: Express.Multer.File) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      // Text-based files need to use "raw" resource type
+      if ([".txt", ".csv", ".md"].includes(ext)) {
+        return "raw";
+      }
+      // For other document types, auto detection works fine
+      return "auto";
+    },
+    // Remove allowed_formats as it's not needed when we specify resource_type correctly
   } as any,
 });
 

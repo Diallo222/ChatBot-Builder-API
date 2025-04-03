@@ -19,7 +19,7 @@ router.put(
   cloudinaryUpload.single("image"),
   avatarController.updateAvatar
 );
-// Admin routes
+// Admin avatar creation route
 router.post(
   "/public",
   protect,
@@ -28,12 +28,14 @@ router.post(
   avatarController.createPublicAvatar
 );
 
-// AI Avatar generation route
+// AI Avatar generation route for users
 router.post(
   "/generate",
   protect,
   cloudinaryUpload.single("image"), // Optional reference image
   avatarController.createAIAvatar
 );
+
+router.delete("/:id", avatarController.deleteAvatar);
 
 export default router;
