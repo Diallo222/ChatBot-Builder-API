@@ -157,11 +157,9 @@ export const getProjects = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
-
     const projects = await Project.find({ owner: userId })
       .populate("avatar")
       .sort({ createdAt: -1 });
-
     res.status(200).json(projects);
   } catch (error) {
     console.error("Get projects error:", error);
@@ -188,7 +186,6 @@ export const getProjectById = async (
       res.status(404).json({ message: "Project not found" });
       return;
     }
-
     res.json(project);
   } catch (error) {
     console.error("Get project error:", error);
@@ -474,9 +471,10 @@ export const getConfiguration = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { id } = req.params;
-
-    const project = await Project.findById(id);
+    const project = await Project.findOne({
+      _id: req.params.id,
+      owner: req.user!.id,
+    });
     if (!project) {
       res.status(404).json({ message: "Project not found" });
       return;
@@ -497,9 +495,10 @@ export const resetConfiguration = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { id } = req.params;
-
-    const project = await Project.findById(id);
+    const project = await Project.findOne({
+      _id: req.params.id,
+      owner: req.user!.id,
+    });
     if (!project) {
       res.status(404).json({ message: "Project not found" });
       return;
@@ -540,7 +539,6 @@ export const updateProjectAvatar = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { id } = req.params;
     const { avatarId } = req.body;
 
     // Find the avatar first
@@ -557,8 +555,11 @@ export const updateProjectAvatar = async (
     }
 
     // Update the project with the new avatar
-    const project = await Project.findByIdAndUpdate(
-      id,
+    const project = await Project.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        owner: req.user!.id,
+      },
       {
         avatar: {
           type: avatar.type,
@@ -591,10 +592,11 @@ export const resetProjectAvatar = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { id } = req.params;
-
-    const project = await Project.findByIdAndUpdate(
-      id,
+    const project = await Project.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        owner: req.user!.id,
+      },
       {
         avatar: {
           type: "predefined",
