@@ -6,6 +6,7 @@ import { IPlan } from "../models/Plan";
 import { LauncherIcon, IScrapedPage } from "../models/Project";
 import Avatar from "../models/Avatar";
 import openai from "../config/openai";
+import cloudinary from "../config/cloudinary";
 
 interface CreateProjectBody {
   name: string;
@@ -291,6 +292,47 @@ export const deleteProject = async (
     if (!project) {
       res.status(404).json({ message: "Project not found" });
       return;
+    }
+
+    // Delete custom avatar from Cloudinary if it exists
+    if (project.avatar.type === "custom" && project.avatar.imageUrl) {
+      try {
+        // Extract public ID from Cloudinary URL
+        const publicId = project.avatar.imageUrl
+          .split("/")
+          .pop()
+          ?.split(".")[0];
+        if (publicId) {
+          await cloudinary.uploader.destroy(publicId);
+          console.log(`Deleted project avatar: ${publicId}`);
+        }
+      } catch (cloudinaryError) {
+        console.error(
+          "Error deleting avatar from Cloudinary:",
+          cloudinaryError
+        );
+        // Continue with project deletion even if avatar deletion fails
+      }
+    }
+
+    // Delete knowledge files from Cloudinary if they exist
+    if (project.knowledgefiles && project.knowledgefiles.length > 0) {
+      for (const file of project.knowledgefiles) {
+        try {
+          // Extract public ID from Cloudinary URL
+          const publicId = file.path.split("/").pop()?.split(".")[0];
+          if (publicId) {
+            await cloudinary.uploader.destroy(publicId);
+            console.log(`Deleted knowledge file: ${publicId}`);
+          }
+        } catch (cloudinaryError) {
+          console.error(
+            "Error deleting knowledge file from Cloudinary:",
+            cloudinaryError
+          );
+          // Continue with next file
+        }
+      }
     }
 
     // Delete OpenAI assistant if it exists
