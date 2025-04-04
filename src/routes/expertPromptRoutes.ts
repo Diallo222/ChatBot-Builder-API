@@ -11,15 +11,12 @@ import {
 } from "../controllers/expertPromptController";
 
 const router = express.Router();
-
+router.get("/public", getPublicExpertPrompts);
 // Admin routes (protected)
 router.get("/", auth, getAllExpertPrompts);
 router.post("/", auth, cloudinaryUpload.single("image"), createExpertPrompt);
 router.get("/:id", auth, getExpertPrompt);
 router.put("/:id", auth, cloudinaryUpload.single("image"), updateExpertPrompt);
 router.delete("/:id", auth, deleteExpertPrompt);
-
-// Public route (unprotected)
-router.get("/public", getPublicExpertPrompts);
 
 export default router;
