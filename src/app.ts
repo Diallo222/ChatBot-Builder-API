@@ -23,6 +23,7 @@ import tutorialRoutes from "./routes/tutorialRoutes";
 import blogRoutes from "./routes/blogRoutes";
 import path from "path";
 import documentRoutes from "./routes/documentRoutes";
+import expertPromptRoutes from "./routes/expertPromptRoutes";
 
 // Load environment variables
 dotenv.config();
@@ -121,6 +122,7 @@ app.use("/api/training", trainingRoutes);
 app.use("/api", tutorialRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/forgot", forgotRoutes);
+app.use("/api/expert-prompts", expertPromptRoutes);
 
 // Stripe webhook route
 app.post(
