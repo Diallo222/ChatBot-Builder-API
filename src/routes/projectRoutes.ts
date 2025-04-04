@@ -5,6 +5,12 @@ import cloudinaryUpload from "../middleware/cloudinaryUpload";
 
 const router = express.Router();
 
+// Public route - does not require authentication
+router.get(
+  "/public-config/:projectId",
+  projectController.getPublicProjectConfig
+);
+
 // All routes are protected
 router.use(protect);
 

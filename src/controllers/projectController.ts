@@ -732,3 +732,45 @@ export const checkWebsitePages = async (
     });
   }
 };
+
+export const getPublicProjectConfig = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { projectId } = req.params;
+
+    // Find project by ID without requiring authentication
+    const project = await Project.findById(projectId).select(
+      "name appearance configuration avatar"
+    );
+
+    if (!project) {
+      res.status(404).json({ message: "Project not found" });
+      return;
+    }
+
+    // Return only the public configuration data needed for the widget
+    res.status(200).json({
+      projectId: project._id,
+      config: {
+        appearance: {
+          primaryColor: project.appearance.mainColor,
+          launcherIcon: project.appearance.launcherIcon,
+          customIconUrl: project.appearance.customIconUrl,
+          avatarUrl: project.avatar.imageUrl,
+        },
+        configuration: {
+          welcomeMessage: project.configuration.welcomeMessage,
+          sampleQuestions: project.configuration.sampleQuestions,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get public project config error:", error);
+    res.status(500).json({
+      message: "Error fetching project configuration",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};

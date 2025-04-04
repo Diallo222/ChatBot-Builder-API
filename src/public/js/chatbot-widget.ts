@@ -45,8 +45,45 @@ class ChatbotWidget {
     this.baseUrl = config.baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
     this.styleSheet = this.createStyleSheet();
     document.head.appendChild(this.styleSheet);
-    this.initializeWidget();
-    this.startNewConversation();
+
+    // Fetch the latest configuration before initializing
+    this.fetchLatestConfig()
+      .then(() => {
+        this.initializeWidget();
+        this.startNewConversation();
+      })
+      .catch((error) => {
+        console.error("Error fetching latest config:", error);
+        // Initialize with embedded config if fetch fails
+        this.initializeWidget();
+        this.startNewConversation();
+      });
+  }
+
+  private async fetchLatestConfig(): Promise<void> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/api/projects/public-config/${this.config.projectId}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch config: ${response.statusText}`);
+      }
+
+      const latestConfig = await response.json();
+
+      // Update the configuration with the latest values
+      this.config = {
+        ...this.config,
+        ...latestConfig,
+      };
+    } catch (error) {
+      console.warn(
+        "Could not fetch latest config, using embedded config instead:",
+        error
+      );
+      // Continue with the embedded config
+    }
   }
 
   private createStyleSheet(): HTMLStyleElement {
