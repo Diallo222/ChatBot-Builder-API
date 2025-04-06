@@ -115,17 +115,35 @@ export const getUserProfile = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  console.log("getUserProfile", req.user);
   try {
-    // req.user is set by the auth middleware
-    const user = await User.findById(req.user?.id)
-      .select("-password")
-      .populate("subscription.plan");
+    // Add explicit type for populated user
+    const user = await User.findById(req.user?._id)
+      .select("-password -resetCode -resetCodeExpiry")
+      .populate({
+        path: "subscription.plan",
+        select: "name price features", // Explicitly select plan fields
+      });
 
     if (!user) {
       res.status(404).json({ message: "User not found" });
       return;
     }
-    res.status(200).json(user);
+
+    // Structure response with only necessary data
+    res.status(200).json({
+      id: user._id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      subscription: {
+        plan: user.subscription.plan,
+        status: user.subscription.status,
+        startDate: user.subscription.startDate,
+        endDate: user.subscription.endDate,
+      },
+      createdAt: user.createdAt,
+    });
   } catch (error) {
     console.error("Get profile error:", error);
     res.status(500).json({
